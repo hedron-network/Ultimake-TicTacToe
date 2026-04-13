@@ -1,13 +1,12 @@
 #pragma once
+typedef unsigned short board;
 
-namespace BordHandling {
+namespace BoardHandling {
 
-    void MakeMove(const unsigned short& player,
-                  unsigned short& x,
-                  unsigned short& y);
+    bool MakeMove(const board &move, board &playerMove, board &oponentBoard);
 
-    bool HasWon(unsigned short& board);
+    bool HasWon(board& board);
 
-    unsigned short IntToBoard(const int& value);
+    board IntToBoard(const int& value);
 
 }

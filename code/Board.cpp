@@ -1,7 +1,6 @@
-#include <cstdint>
-typedef uint16_t board;
+#include "board.h"
 
-namespace BordHandling
+namespace BoardHandling
 {
     bool MakeMove(const board &move, board &playerMove, board &oponentBoard){
         const board blockedSpaces = playerMove |oponentBoard;

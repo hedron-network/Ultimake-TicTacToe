@@ -16,6 +16,6 @@ void print_board(uint16_t board) {
     }
 }
 int main(){
-    print_board(BordHandling::IntToBoard(5));
+    print_board(BoardHandling::IntToBoard(5));
     return 0;
 }
