@@ -5,11 +5,17 @@ namespace BoardHandling
     bool MakeMove(const board &move, board &playerBoard,const board &oponentBoard){
         const board blockedSpaces = playerBoard |oponentBoard;
         const board Empty=0;
-        if(move & blockedSpaces != Empty){//check for overlap
+        const board Overlap = move & blockedSpaces;
+        if(Overlap != Empty){//check for overlap
             return false;
         }
         playerBoard |= move; // add the move
         return true;
+    }
+    bool hasTied(const board &p1,const board &p2){
+        const board allMoves=p1|p2;
+        const board unplayedMoves = allMoves^AllOnes;
+        return unplayedMoves==0;
     }
     bool HasWon(const board &player){
         const board winningPositions[8] = {
@@ -28,9 +34,11 @@ namespace BoardHandling
     board IntToBoard(const int& pos){
         return 1<<pos;
     }
-    const board emptyBigBoard[9]{
-        0,0,0,
-        0,0,0,
-        0,0,0
-    };
+    void MakeAllOnes(board &board){
+        board |= AllOnes;//All ones = 0x1FF
+    }
+    void MakeAllZeros(board &board){
+        board &= 0;
+    }
+    
 }
