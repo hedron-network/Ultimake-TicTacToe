@@ -13,7 +13,6 @@ void print_board(uint16_t boardX, uint16_t boardO) {
         }
         else
             printf(" . ");
-
         // Newline after every 3 cells
         if (i % 3 == 2)
             printf("\n");
@@ -52,6 +51,7 @@ int main(){
     else{
         printf("tied");
     }
-    
+    print_board(p1,0);
+    print_board(0,p2);
     return 0;
 }

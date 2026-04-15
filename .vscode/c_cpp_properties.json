@@ -1,0 +1,15 @@
+{
+    "configurations": [
+      {
+        "name": "Windows",
+        "includePath": [
+          "${workspaceFolder}/**",
+          "C:/Users/perso/AppData/Local/Programs/Python/Python312/include",
+          "C:\\Users\\perso\\AppData\\Local\\Programs\\Python\\Python313\\Lib\\site-packages\\pybind11\\include"
+        ],
+        "cppStandard": "c++17",
+        "intelliSenseMode": "windows-gcc-x64"
+      }
+    ],
+    "version": 4
+  }
