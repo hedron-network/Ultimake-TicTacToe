@@ -1,57 +1,45 @@
-#include <stdio.h>
-#include <iostream>
-#include <stdint.h>
-#include "board.h"
+﻿#include <iostream>
+#include <limits>
+#include "Game.h"
 
-void print_board(uint16_t boardX, uint16_t boardO) {
-    for (int i = 0; i < 9; i++) {
-        // Check if bit i is set
-        if (boardX & (1 << i))
-            printf(" X ");
-        else if(boardO & (1 << i)){
-            printf(" O ");
-        }
-        else
-            printf(" . ");
+int main()
+{
+    Game game;
+    game.PrintGame();
 
-        // Newline after every 3 cells
-        if (i % 3 == 2)
-            printf("\n");
-    }
-}
-int main(){
-    unsigned short p1=0;
-    unsigned short p2=0;
-    while (!BoardHandling::hasTied(p1,p2))
-    {
-        int move;
-        printf("move p1:\n");
-        std::cin>>move;
-        BoardHandling::MakeMove(BoardHandling::IntToBoard(move),p1,p2);   
-        print_board(p1,p2);
-        if(BoardHandling::HasWon(p1)){
-            BoardHandling::MakeAllOnes(p1);
-            break;
+    while (!game.IsGameOver()) {
+        int boardIndex;
+        int cellIndex;
+        int activeBoard = game.GetActiveBoard();
+        char playerMark = (game.GetCurrentPlayer() == 1) ? 'X' : 'O';
+
+        if (activeBoard >= 0) {
+            std::cout << "Player " << playerMark << " turn on board " << activeBoard << ". Enter cell (0-8): ";
+            std::cin >> cellIndex;
+            boardIndex = activeBoard;
+        } else {
+            std::cout << "Player " << playerMark << " choose board (0-8) and cell (0-8): ";
+            std::cin >> boardIndex >> cellIndex;
         }
-        move=-1;
-        printf("move p2:\n");
-        std::cin>>move;
-        BoardHandling::MakeMove(BoardHandling::IntToBoard(move),p2,p1); 
-        print_board(p1,p2);  
-        if(BoardHandling::HasWon(p2)){
-            BoardHandling::MakeAllOnes(p2);
-            break;
+
+        if (!std::cin || !game.TryMove(boardIndex, cellIndex)) {
+            std::cin.clear();
+            std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+            std::cout << "Invalid move. Please try again.\n";
+            continue;
         }
+
+        game.PrintGame();
     }
-    if(p1==BoardHandling::AllOnes){
-        printf("X won");
+
+    int winner = game.GetWinner();
+    if (winner == 1) {
+        std::cout << "X wins the Ultimate Tic-Tac-Toe!\n";
+    } else if (winner == 2) {
+        std::cout << "O wins the Ultimate Tic-Tac-Toe!\n";
+    } else {
+        std::cout << "The game is a tie.\n";
     }
-    else if (p2==BoardHandling::AllOnes){
-        printf("O won");
-    }
-    else{
-        printf("tied");
-    }
-    
+
     return 0;
 }
