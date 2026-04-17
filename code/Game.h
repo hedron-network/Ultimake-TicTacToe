@@ -1,18 +1,27 @@
 #pragma once
 #include "board.h"
+#include <vector>
 
 class Game {
 public:
     Game();
 
-    bool TryMove(int boardIndex, int cellIndex);
+    std::vector<float> get_state();
+    void undo();
+    std::vector<int> get_legal_moves();
+    bool apply_move(int board, int move);
+    int get_winner();
+    bool is_done();
+
+private:
+    bool TryMove(const int& boardIndex, const int& cellIndex);
     void PrintGame() const;
     bool IsGameOver() const;
     int GetWinner() const;
     int GetCurrentPlayer() const;
     int GetActiveBoard() const;
 
-private:
+
     board subX[9];
     board subO[9];
     board bigX;
@@ -21,12 +30,13 @@ private:
     int activeBoard;
     bool gameOver;
     int winner;
+    void SetActiveBoard(int board);
 
-    bool IsBoardFinished(int boardIndex) const;
-    bool IsBoardFull(int boardIndex) const;
-    void UpdateSubBoardStatus(int boardIndex);
+    bool IsBoardFinished(const int& boardIndex) const;
+    bool IsBoardFull(const int& boardIndex) const;
+    void UpdateSubBoardStatus(const int& boardIndex);
     void UpdateBigBoard();
-    bool HasWonBig(const board player) const;
+    bool HasWonBig(const board& player) const;
     bool AllSubBoardsFinished() const;
-    char CellChar(int boardIndex, int cellIndex) const;
+    char CellChar(const int& boardIndex, const int& cellIndex) const;
 };

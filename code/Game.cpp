@@ -1,4 +1,5 @@
 #include "Game.h"
+
 #include <iostream>
 
 Game::Game()
@@ -10,20 +11,19 @@ Game::Game()
     }
 }
 
-bool Game::IsBoardFull(int boardIndex) const
+bool Game::IsBoardFull(const int &boardIndex) const
 {
-    const board allMoves = subX[boardIndex] | subO[boardIndex];
-    return allMoves == BoardHandling::AllOnes;
+    return BoardHandling::hasTied(subX[boardIndex],subO[boardIndex]);
 }
 
-bool Game::IsBoardFinished(int boardIndex) const
+bool Game::IsBoardFinished(const int &boardIndex) const
 {
     return BoardHandling::HasWon(subX[boardIndex]) ||
            BoardHandling::HasWon(subO[boardIndex]) ||
-           IsBoardFull(boardIndex);
+           BoardHandling::hasTied(subX[boardIndex],subO[boardIndex]);
 }
 
-void Game::UpdateSubBoardStatus(int boardIndex)
+void Game::UpdateSubBoardStatus(const int &boardIndex)
 {
     if ((bigX | bigO) & BoardHandling::IntToBoard(boardIndex)) {
         return; // already recorded
@@ -45,7 +45,7 @@ void Game::UpdateBigBoard()
     }
 }
 
-bool Game::HasWonBig(const board player) const
+bool Game::HasWonBig(const board &player) const
 {
     return BoardHandling::HasWon(player);
 }
@@ -60,7 +60,60 @@ bool Game::AllSubBoardsFinished() const
     return true;
 }
 
-char Game::CellChar(int boardIndex, int cellIndex) const
+    std::vector<float> Game::get_state(){  // vector<float> 
+    }
+    void Game::undo(){
+        
+    }
+    std::vector<int> Game::get_legal_moves(){
+
+    }
+    bool Game::apply_move(int board, int move){
+        if(currentPlayer==1){
+            BoardHandling::MakeUncheckedMove(BoardHandling::IntToBoard(move),subX[board]);
+            if(BoardHandling::HasWon(subX[board])){
+                bigX |= BoardHandling::IntToBoard(move);
+                return true;
+            }
+            currentPlayer=0;
+            return false;
+        }
+        BoardHandling::MakeUncheckedMove(BoardHandling::IntToBoard(move),subO[board]);
+        if(BoardHandling::HasWon(subX[board])){
+            bigO |= BoardHandling::IntToBoard(move);
+            return true;
+        }
+        currentPlayer=1;
+        return false;
+    }
+    void Game::SetActiveBoard(int board){
+        if(IsBoardFinished(board)){
+            activeBoard=-1;
+            return;
+        }
+        activeBoard =board;
+    }
+    
+    int Game::get_winner(){
+        if(BoardHandling::HasWon(bigX)){
+            return 1;
+        }
+        if(BoardHandling::HasWon(bigO)){
+            return -1;
+        }
+        return 0;
+    }
+    bool Game::is_done(){
+        if(BoardHandling::HasWon(bigX)||BoardHandling::HasWon(bigO)||BoardHandling::hasTied(bigO,bigX))
+        {
+            return true;
+        }
+        return false;
+    }
+
+
+
+char Game::CellChar(const int &boardIndex, const int &cellIndex) const
 {
     const board mask = BoardHandling::IntToBoard(cellIndex);
     if (subX[boardIndex] & mask) {
@@ -70,52 +123,6 @@ char Game::CellChar(int boardIndex, int cellIndex) const
         return 'O';
     }
     return '.';
-}
-
-bool Game::TryMove(int boardIndex, int cellIndex)
-{
-    if (boardIndex < 0 || boardIndex > 8 || cellIndex < 0 || cellIndex > 8) {
-        return false;
-    }
-
-    if (activeBoard >= 0 && boardIndex != activeBoard) {
-        if (!IsBoardFinished(activeBoard)) {
-            return false;
-        }
-    }
-
-    if (IsBoardFinished(boardIndex)) {
-        return false;
-    }
-
-    board moveMask = BoardHandling::IntToBoard(cellIndex);
-    board &playerBoard = (currentPlayer == 1) ? subX[boardIndex] : subO[boardIndex];
-    board &opponentBoard = (currentPlayer == 1) ? subO[boardIndex] : subX[boardIndex];
-
-    if (!BoardHandling::MakeMove(moveMask, playerBoard, opponentBoard)) {
-        return false;
-    }
-
-    UpdateSubBoardStatus(boardIndex);
-    UpdateBigBoard();
-
-    int nextTarget = cellIndex;
-    if (nextTarget < 0 || nextTarget > 8 || IsBoardFinished(nextTarget)) {
-        activeBoard = -1;
-    } else {
-        activeBoard = nextTarget;
-    }
-
-    if (HasWonBig(currentPlayer == 1 ? bigX : bigO)) {
-        gameOver = true;
-        winner = currentPlayer;
-    } else if (AllSubBoardsFinished()) {
-        gameOver = true;
-        winner = 3;
-    } else {
-        currentPlayer = 3 - currentPlayer;
-    }
-    return true;
 }
 
 void Game::PrintGame() const

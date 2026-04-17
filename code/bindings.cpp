@@ -1,6 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>  // enables std::vector conversion
-#include "game.h"
+#include "Game.h"
 namespace py = pybind11;
 
 PYBIND11_MODULE(engine, m) {
@@ -11,5 +11,5 @@ PYBIND11_MODULE(engine, m) {
         .def("get_legal_moves", &Game::get_legal_moves)
         .def("apply_move", &Game::apply_move)
         .def("get_winner", &Game::get_winner)
-        .def("is_done", &Game::is_done)
+        .def("is_done", &Game::is_done);
 }
