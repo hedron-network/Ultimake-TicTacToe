@@ -12,15 +12,15 @@ namespace BoardHandling {
 
     board AviableSpaces(const board &playerBoard, const board &OpponentBoard);
     board IntToBoard(const int& value);
-    std::vector<int> AviableMoves(const int &boardNumber, board &playerBoard, const board &OpponentBoard);
+    std::vector<int> AviableMoves(const int &boardNumber, const board &playerBoard, const board &OpponentBoard);
     void MakeAllOnes(board &board);
     void MakeAllZeros(board &board);
-
-    const board emptyBigBoard[9]{
+    int CompactMove(const int &board,const int &move);
+    constexpr  board emptyBigBoard[9]{
         0,0,0,
         0,0,0,
         0,0,0
     };
-    const board AllOnes = 0x1FF;
+    constexpr board AllOnes = 0x1FF;
     constexpr board FULL_MASK = (1 << 9) - 1;
 }

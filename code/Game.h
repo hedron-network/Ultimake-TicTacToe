@@ -1,7 +1,13 @@
 #pragma once
 #include "board.h"
 #include <vector>
-
+struct Move{
+    board prevBX;
+    board prevBO;
+    short prevActiveBoard;
+    short chosenBoard;
+    board prevBoard;
+};
 class Game {
 public:
     Game();
@@ -44,10 +50,4 @@ private:
     bool AllSubBoardsFinished() const;
     char CellChar(const int& boardIndex, const int& cellIndex) const;
 };
-struct Move{
-    board prevBX;
-    board prevBO;
-    short prevActiveBoard;
-    short chosenBoard;
-    board prevBoard;
-};
+

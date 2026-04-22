@@ -119,6 +119,7 @@ bool Game::AllSubBoardsFinished() const
         else{
             subO[lastMove.chosenBoard]=lastMove.prevBoard;
         }
+        moveHistory.pop_back();
     }
     std::vector<int> Game::get_legal_moves(){
         if(currentPlayer==1){
@@ -133,6 +134,9 @@ bool Game::AllSubBoardsFinished() const
         else{
             std::vector<int> moves;
             for(int i =0;i<9;i++){
+                if(IsBoardFinished(i)){
+                    continue;
+                }
                 auto newMoves= BoardHandling::AviableMoves(i,X[i],Y[i]);
                 moves.insert(moves.end(), newMoves.begin(), newMoves.end());
             }
@@ -148,6 +152,7 @@ bool Game::AllSubBoardsFinished() const
         else{
             currentPlayer=1;
         }
+        SetActiveBoard(move%9);
     }
     void Game::RecordMove(int move){
         Move currentMove;
@@ -156,10 +161,10 @@ bool Game::AllSubBoardsFinished() const
         currentMove.prevActiveBoard = activeBoard;
         currentMove.chosenBoard=move/9;
         if(currentPlayer==1){
-            currentMove.prevBoard=subX[move%9];
+            currentMove.prevBoard=subX[currentMove.chosenBoard];
         }
         else{
-            currentMove.prevBoard=subO[move%9];
+            currentMove.prevBoard=subO[currentMove.chosenBoard];
         }
         moveHistory.push_back(currentMove);
     }
@@ -168,14 +173,14 @@ bool Game::AllSubBoardsFinished() const
         if(currentPlayer==1){
             BoardHandling::MakeUncheckedMove(BoardHandling::IntToBoard(move),subX[board]);
             if(BoardHandling::HasWon(subX[board])){
-                bigX |= BoardHandling::IntToBoard(move);
+                bigX |= BoardHandling::IntToBoard(board);
                 return true;
             }
             return false;
         }
         BoardHandling::MakeUncheckedMove(BoardHandling::IntToBoard(move),subO[board]);
-        if(BoardHandling::HasWon(subX[board])){
-            bigO |= BoardHandling::IntToBoard(move);
+        if(BoardHandling::HasWon(subO[board])){
+            bigO |= BoardHandling::IntToBoard(board);
             return true;
         }
         return false;
@@ -199,11 +204,15 @@ bool Game::AllSubBoardsFinished() const
         return 0;
     }
     bool Game::is_done(){
-        if(BoardHandling::HasWon(bigX)||BoardHandling::HasWon(bigO)||BoardHandling::hasTied(bigO,bigX))
-        {
+        if(BoardHandling::HasWon(bigX) || BoardHandling::HasWon(bigO)){
             return true;
         }
-        return false;
+        for(int i=0;i<9;i++){
+            if(!IsBoardFinished(i)){
+                return false;
+            }
+        }
+        return true;
     }
 
     int Game::ExtractBoardFromMove(int move){
