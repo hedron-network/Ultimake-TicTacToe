@@ -9,18 +9,22 @@ public:
     std::vector<float> get_state();
     void undo();
     std::vector<int> get_legal_moves();
-    bool apply_move(int board, int move);
+    void apply_move(int move);
     int get_winner();
     bool is_done();
 
 private:
+    void RecordMove(int move);
+    bool MakeMoveAndCheckIfWon(int board, int move);
+    std::vector<int> CalculateMoves(board* X,board* Y);
+    int ExtractBoardFromMove(int move);
     bool TryMove(const int& boardIndex, const int& cellIndex);
     void PrintGame() const;
     bool IsGameOver() const;
     int GetWinner() const;
     int GetCurrentPlayer() const;
     int GetActiveBoard() const;
-
+    std::vector<Move> moveHistory;
 
     board subX[9];
     board subO[9];
@@ -39,4 +43,11 @@ private:
     bool HasWonBig(const board& player) const;
     bool AllSubBoardsFinished() const;
     char CellChar(const int& boardIndex, const int& cellIndex) const;
+};
+struct Move{
+    board prevBX;
+    board prevBO;
+    short prevActiveBoard;
+    short chosenBoard;
+    board prevBoard;
 };

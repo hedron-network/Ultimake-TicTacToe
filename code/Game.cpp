@@ -59,23 +59,118 @@ bool Game::AllSubBoardsFinished() const
     }
     return true;
 }
+    std::vector<float> Game::get_state() {
+        std::vector<float> state;
+        state.reserve(406);
 
-    std::vector<float> Game::get_state(){  // vector<float> 
+        // Determine "my" and "opp" boards based on current player
+        board* myBoards  = (currentPlayer == 1) ? subX : subO;
+        board* oppBoards = (currentPlayer == 1) ? subO : subX;
+        board  myBig     = (currentPlayer == 1) ? bigX  : bigO;
+        board  oppBig    = (currentPlayer == 1) ? bigO  : bigX;
+
+        // Plane 0: current player's pieces (81 cells)
+        for (int b = 0; b < 9; ++b)
+            for (int c = 0; c < 9; ++c)
+                state.push_back((myBoards[b] & BoardHandling::IntToBoard(c)) ? 1.f : 0.f);
+
+        // Plane 1: opponent's pieces (81 cells)
+        for (int b = 0; b < 9; ++b)
+            for (int c = 0; c < 9; ++c)
+                state.push_back((oppBoards[b] & BoardHandling::IntToBoard(c)) ? 1.f : 0.f);
+
+        // Plane 2: sub-boards won by current player (81 cells, entire board = 1)
+        for (int b = 0; b < 9; ++b) {
+            float val = (myBig & BoardHandling::IntToBoard(b)) ? 1.f : 0.f;
+            for (int c = 0; c < 9; ++c) state.push_back(val);
+        }
+
+        // Plane 3: sub-boards won by opponent (81 cells)
+        for (int b = 0; b < 9; ++b) {
+            float val = (oppBig & BoardHandling::IntToBoard(b)) ? 1.f : 0.f;
+            for (int c = 0; c < 9; ++c) state.push_back(val);
+        }
+
+        // Plane 4: valid target boards (81 cells)
+        for (int b = 0; b < 9; ++b) {
+            float val = (activeBoard == -1 || activeBoard == b) && !IsBoardFinished(b) ? 1.f : 0.f;
+            for (int c = 0; c < 9; ++c) state.push_back(val);
+        }
+
+        // Scalar: current player
+        state.push_back(currentPlayer == 1 ? 1.f : 0.f);
+
+        return state; // length 406
     }
     void Game::undo(){
-        
+        Move lastMove = moveHistory.back();
+        if(currentPlayer==1){
+            currentPlayer=0;
+        }
+        else{
+            currentPlayer=1;
+        }
+        bigX=lastMove.prevBX;
+        bigO=lastMove.prevBO;
+        activeBoard=lastMove.prevActiveBoard;
+        if(currentPlayer==1){
+            subX[lastMove.chosenBoard]=lastMove.prevBoard;
+        }
+        else{
+            subO[lastMove.chosenBoard]=lastMove.prevBoard;
+        }
     }
     std::vector<int> Game::get_legal_moves(){
-
+        if(currentPlayer==1){
+            return CalculateMoves(subX,subO);
+        }
+        return CalculateMoves(subO,subX);
     }
-    bool Game::apply_move(int board, int move){
+    std::vector<int> Game::CalculateMoves(board* X, board* Y){
+        if(activeBoard!=-1){
+            return BoardHandling::AviableMoves(activeBoard,X[activeBoard],Y[activeBoard]);
+        }
+        else{
+            std::vector<int> moves;
+            for(int i =0;i<9;i++){
+                auto newMoves= BoardHandling::AviableMoves(i,X[i],Y[i]);
+                moves.insert(moves.end(), newMoves.begin(), newMoves.end());
+            }
+            return moves;
+        }
+    }
+    void Game::apply_move(int move){
+        RecordMove(move);
+        MakeMoveAndCheckIfWon(move/9,move%9);
+        if(currentPlayer==1){
+            currentPlayer=0;
+        }
+        else{
+            currentPlayer=1;
+        }
+    }
+    void Game::RecordMove(int move){
+        Move currentMove;
+        currentMove.prevBX = bigX;
+        currentMove.prevBO = bigO;
+        currentMove.prevActiveBoard = activeBoard;
+        currentMove.chosenBoard=move/9;
+        if(currentPlayer==1){
+            currentMove.prevBoard=subX[move%9];
+        }
+        else{
+            currentMove.prevBoard=subO[move%9];
+        }
+        moveHistory.push_back(currentMove);
+    }
+
+    bool Game::MakeMoveAndCheckIfWon(int board, int move){
         if(currentPlayer==1){
             BoardHandling::MakeUncheckedMove(BoardHandling::IntToBoard(move),subX[board]);
             if(BoardHandling::HasWon(subX[board])){
                 bigX |= BoardHandling::IntToBoard(move);
                 return true;
             }
-            currentPlayer=0;
             return false;
         }
         BoardHandling::MakeUncheckedMove(BoardHandling::IntToBoard(move),subO[board]);
@@ -83,9 +178,9 @@ bool Game::AllSubBoardsFinished() const
             bigO |= BoardHandling::IntToBoard(move);
             return true;
         }
-        currentPlayer=1;
         return false;
     }
+
     void Game::SetActiveBoard(int board){
         if(IsBoardFinished(board)){
             activeBoard=-1;
@@ -111,6 +206,9 @@ bool Game::AllSubBoardsFinished() const
         return false;
     }
 
+    int Game::ExtractBoardFromMove(int move){
+        return move/9;
+    }
 
 
 char Game::CellChar(const int &boardIndex, const int &cellIndex) const

@@ -12,7 +12,7 @@ namespace BoardHandling {
 
     board AviableSpaces(const board &playerBoard, const board &OpponentBoard);
     board IntToBoard(const int& value);
-    std::vector<int> AviableMoves(const board &playerBoard, const board &OpponentBoard);
+    std::vector<int> AviableMoves(const int &boardNumber, board &playerBoard, const board &OpponentBoard);
     void MakeAllOnes(board &board);
     void MakeAllZeros(board &board);
 
