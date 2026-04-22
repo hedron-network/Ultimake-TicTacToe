@@ -1,12 +1,13 @@
-
-cmake_minimum_required(VERSION 3.10)
-
-project(BoardProject)
-
+cmake_minimum_required(VERSION 3.15)
+project(Game)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED True)
+set(PYBIND11_FINDPYTHON ON)
 
-# Collect all source files
+find_package(Python COMPONENTS Interpreter Development REQUIRED)
+find_package(pybind11 REQUIRED)
+
+# Collect all source files (includes bindings.cpp + Game.cpp etc.)
 file(GLOB SOURCES "code/*.cpp")
 
-add_executable(Game ${SOURCES})
+# Pass ALL sources, not just bindings.cpp
+pybind11_add_module(Game ${SOURCES})
