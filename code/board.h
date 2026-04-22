@@ -1,4 +1,5 @@
 #pragma once
+#include <intrin.h>
 #include <vector>
 typedef unsigned short board;
 

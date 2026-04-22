@@ -10,4 +10,4 @@ find_package(pybind11 REQUIRED)
 file(GLOB SOURCES "code/*.cpp")
 
 # Pass ALL sources, not just bindings.cpp
-pybind11_add_module(Game ${SOURCES})
+pybind11_add_module(engine ${SOURCES})

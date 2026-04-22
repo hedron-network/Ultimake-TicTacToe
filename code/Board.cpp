@@ -48,13 +48,17 @@ namespace BoardHandling
     board IntToBoard(const int& pos){
         return 1<<pos;
     }
-    std::vector<int> AviableMoves(const int &boardNumber,const board &playerBoard, const board &OpponentBoard){
+
+
+    std::vector<int> AviableMoves(const int& boardNumber,const board &playerBoard, const board &OpponentBoard){
         board b = AviableSpaces(playerBoard,OpponentBoard);
 
         std::vector<int> result;
         while (b) {
-            int pos = __builtin_ctz(b); // count trailing zeros
-            result.push_back(CompactMove(boardNumber,pos));
+            unsigned long index;
+            _BitScanForward(&index, b);
+            int pos =int(index);// count trailing zeros
+            result.push_back(boardNumber*9+pos);
             b &= (b - 1); // clear lowest set bit
         }
         return result;
@@ -64,9 +68,6 @@ namespace BoardHandling
     }
     void MakeAllZeros(board &board){
         board &= 0;
-    }
-    int CompactMove(const int &board,const int &move){
-        return board*9+move;
     }
     
 }
