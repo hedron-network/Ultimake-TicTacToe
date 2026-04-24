@@ -18,6 +18,8 @@ public:
     void apply_move(int move);
     int get_winner();
     bool is_done();
+    void PrintGame() const;
+    int GetCurrentPlayer() const;
 
 private:
     void RecordMove(int move);
@@ -25,10 +27,8 @@ private:
     std::vector<int> CalculateMoves(board* X,board* Y);
     int ExtractBoardFromMove(int move);
     bool TryMove(const int& boardIndex, const int& cellIndex);
-    void PrintGame() const;
     bool IsGameOver() const;
     int GetWinner() const;
-    int GetCurrentPlayer() const;
     int GetActiveBoard() const;
     std::vector<Move> moveHistory;
 
