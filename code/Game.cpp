@@ -9,8 +9,22 @@ Game::Game()
         subX[i] = 0;
         subO[i] = 0;
     }
+    NeuralNet::loadWeights(".\\model_weights.json");
 }
-
+float Game::eval(){
+    float Eval = 1;
+    if(currentPlayer==1){
+        for(int i=0;i<9;i++){
+            Eval *= NeuralNet::evaluate(subX[i], subO[i]);
+        }
+    }
+    else{
+        for(int i=0;i<9;i++){
+            Eval *= NeuralNet::evaluate(subO[i], subX[i]);
+        }
+    }
+    return Eval;
+}
 bool Game::IsBoardFull(const int &boardIndex) const
 {
     return BoardHandling::hasTied(subX[boardIndex],subO[boardIndex]);

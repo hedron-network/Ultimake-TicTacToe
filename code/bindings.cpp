@@ -11,5 +11,7 @@ PYBIND11_MODULE(engine, m) {
         .def("get_legal_moves", &Game::get_legal_moves)
         .def("apply_move", &Game::apply_move)
         .def("get_winner", &Game::get_winner)
-        .def("is_done", &Game::is_done);
+        .def("is_done", &Game::is_done)
+        .def("eval", &Game::eval)
+        .def("print_board", & Game::PrintGame);
 }

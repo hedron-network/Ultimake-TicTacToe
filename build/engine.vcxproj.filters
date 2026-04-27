@@ -10,7 +10,10 @@
     <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\bindings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\main.cpp">
+    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\neural_net.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\neural_test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
