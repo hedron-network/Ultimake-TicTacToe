@@ -39,8 +39,9 @@ _EXACT = 0
 _LOWER = 1
 _UPPER = 2
 
-
+eval_calls = 0
 def minimax(game, depth, alpha, beta, maximizing=True):
+    global eval_calls
     # --- Terminal / leaf ---
     if game.is_done():
         w = game.get_winner()
@@ -51,6 +52,7 @@ def minimax(game, depth, alpha, beta, maximizing=True):
         return LOSS_SCORE if w != current_player else WIN_SCORE
 
     if depth == 0:
+        eval_calls+=1
         return game.eval() * 100_000
 
     moves = game.get_legal_moves()
@@ -181,7 +183,28 @@ def best_move(game, max_depth=MAX_DEPTH, time_limit=TIME_LIMIT):
 
     return chosen
 
+def best_move_train(game):
+    """Shallow fixed-depth search for training data generation.
+    - Fixed depth=3 so every leaf calls eval()
+    - Clears TT before each call so net weights are always fresh
+    - No time limit
+    """
+    global _tt
+    _tt = {}   # fresh TT — no stale cached scores from other games
 
+    moves = order_moves(game.get_legal_moves())
+    best_val = -math.inf
+    chosen   = moves[0]
+
+    for m in moves:
+        game.apply_move(m)
+        val = -minimax(game, depth=2, alpha=-math.inf, beta=math.inf)
+        game.undo()
+        if val > best_val:
+            best_val = val
+            chosen   = m
+
+    return chosen
 # ---------------------------------------------------------------------------
 # Coordinate helpers
 # ---------------------------------------------------------------------------
@@ -205,6 +228,7 @@ def move_to_coord(move):
 # Game loop
 # ---------------------------------------------------------------------------
 def play_game(human_starts=True):
+    global eval_calls
     global _tt
     _tt = {}
 
@@ -295,6 +319,7 @@ def play_AIgame(human_starts=True):
 
     w = game.get_winner()
     print("\n=== Game over ===")
+    print(eval_calls)
     if w == 0:
         print("Draw!")
     elif (w == 1 and human_starts) or (w == -1 and not human_starts):
