@@ -49,11 +49,11 @@ def minimax(game, depth, alpha, beta, maximizing=True):
             return 0
         # current player is whoever is to move now; the one who just moved won
         current_player = game.get_current_player()
-        return LOSS_SCORE if w != current_player else WIN_SCORE
+        return LOSS_SCORE  if w != current_player else WIN_SCORE
 
     if depth == 0:
         eval_calls+=1
-        return game.eval() * 100_000
+        return game.eval() 
 
     moves = game.get_legal_moves()
     if not moves:
@@ -111,7 +111,6 @@ def best_move(game, max_depth=MAX_DEPTH, time_limit=TIME_LIMIT):
     chosen = moves[0]
     start  = time.monotonic()
 
-    state = game.get_state()
     maximizing_root = True
 
     # Aspiration window parameters

@@ -379,8 +379,11 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\generator\generator.cpp" />
-    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\generator\generator_main.cpp" />
+    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\Board.cpp" />
+    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\Game.cpp" />
+    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\bindings.cpp" />
+    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\neural_net.cpp" />
+    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\neural_test.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

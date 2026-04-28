@@ -33,6 +33,11 @@ public:
     std::vector<float> get_features() const ;
 
 private:
+    int popcount(uint64_t x);
+    float EvaluateForcedMovePressure();
+    float BoardWeight(int i);
+    float EvaluateSubBoard(int i);
+    float EvaluateBigBoard();
     void RecordMove(int move);
     bool MakeMoveAndCheckIfWon(int board, int move);
     std::vector<int> CalculateMoves(board* X,board* Y);

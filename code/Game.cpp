@@ -1,5 +1,5 @@
 #include "Game.h"
-
+#include <algorithm>
 #include <iostream>
 
 Game::Game()
@@ -11,15 +11,7 @@ Game::Game()
     }
     NeuralNet::loadWeights("./model_weights.json");
 }
-float Game::eval() {
-    float score = 0;
-    for(int i =0; i<9;i++){
-        score+=NeuralNet::evaluate(subX[i],subO[i]); 
-    }
-    score = score/9.f;
-    score += NeuralNet::evaluate(bigX,bigO);
-    return currentPlayer == 1 ? score : -score;
-}
+
 bool Game::IsBoardFull(const int &boardIndex) const
 {
     return BoardHandling::hasTied(subX[boardIndex],subO[boardIndex]);
@@ -246,8 +238,126 @@ int Game::GetActiveBoard() const
 {
     return activeBoard;
 }
+// Eval
+float Game::eval() {
+    float big   = EvaluateBigBoard();
+    float sub   = 0;
+    float tempo = EvaluateForcedMovePressure();
 
-    // Zobrist table — initialized once at program start
+    for (int i = 0; i < 9; i++) {
+        sub += BoardWeight(i) * EvaluateSubBoard(i);
+    }
+
+    float score = 5.0f * big + 1.0f * sub + 2.0f * tempo;
+    score = std::clamp(score, -900000.0f, 900000.0f);
+
+    // Negamax requires score from the perspective of the player TO MOVE
+    return score;
+}
+float Game::EvaluateForcedMovePressure() {
+    if (activeBoard == -1)
+        return 0;
+
+    float score = 0;
+    // "opponent" board is whichever player is NOT moving
+    board* oppBoard = (currentPlayer == 1) ? subO : subX;
+    board* myBoard  = (currentPlayer == 1) ? subX : subO;
+
+    // Forcing opponent into a board they've already won is great for us
+    if (BoardHandling::HasWon(oppBoard[activeBoard]))
+        score += 3000;
+
+    // Forcing opponent into a board WE've won is bad for us
+    if (BoardHandling::HasWon(myBoard[activeBoard]))
+        score -= 3000;
+
+    if (IsBoardFinished(activeBoard))
+        score += 500;
+
+    return score;
+}
+float Game::BoardWeight(int i) {
+    if ((bigX | bigO) & BoardHandling::IntToBoard(i))
+        return 0.2f; // finished boards matter less
+
+    if (i == activeBoard)
+        return 1.5f; // forced board is CRITICAL
+
+    return 1.0f;
+}
+float Game::EvaluateSubBoard(int i) {
+    const board X = subX[i];
+    const board O = subO[i];
+
+    if (BoardHandling::HasWon(X)) return 10000;
+    if (BoardHandling::HasWon(O)) return -10000;
+
+    float score = 0;
+
+    const board winning[8] = {
+        0x007, 0x038, 0x1C0,
+        0x049, 0x092, 0x124,
+        0x111, 0x054
+    };
+
+    for (auto line : winning) {
+        int x = popcount(X & line);
+        int o = popcount(O & line);
+
+        if (x && o) continue;
+
+        if (x == 2 && o == 0) score += 200;
+        if (x == 1 && o == 0) score += 20;
+
+        if (o == 2 && x == 0) score -= 200;
+        if (o == 1 && x == 0) score -= 20;
+    }
+
+    return score;
+}
+int Game::popcount(uint64_t x) {
+    int c = 0;
+    while (x) {
+        x &= (x - 1);
+        c++;
+    }
+    return c;
+}
+float Game::EvaluateBigBoard() {
+    const float WIN = 1e6;
+
+    if (BoardHandling::HasWon(bigX)) return WIN;
+    if (BoardHandling::HasWon(bigO)) return -WIN;
+
+    float score = 0;
+
+    const board winning[8] = {
+        0x007, 0x038, 0x1C0,
+        0x049, 0x092, 0x124,
+        0x111, 0x054
+    };
+
+    for (auto line : winning) {
+        int x = popcount(bigX & line);
+        int o = popcount(bigO & line);
+
+        if (x && o) continue; // blocked line
+
+        if (x == 2 && o == 0) score += 50000;
+        if (x == 1 && o == 0) score += 5000;
+
+        if (o == 2 && x == 0) score -= 50000;
+        if (o == 1 && x == 0) score -= 5000;
+    }
+
+    return score;
+}
+
+   // Zobrist table
+
+
+
+
     static uint64_t ZOBRIST[9][9][2];  // [board][cell][player 0=X,1=O]
     static uint64_t ZOBRIST_ACTIVE[10]; // active board: 0–8, or 9 for "any"
     static uint64_t ZOBRIST_PLAYER;    // XOR in when it's O's turn
