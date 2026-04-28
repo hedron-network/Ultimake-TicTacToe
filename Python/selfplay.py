@@ -4,8 +4,14 @@ import torch.nn as nn
 import engine, random, json
 from main import best_move
 from tqdm import tqdm
+from concurrent.futures import ProcessPoolExecutor, as_completed
+import multiprocessing
 
-# ── Model ──────────────────────────────────────────────────────────────────
+# ── Device ─────────────────────────────────────────────────────────────────
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
+
+# ── Model ───────────────────────────────────────────────────────────────────
 class GlobalEval(nn.Module):
     def __init__(self):
         super().__init__()
@@ -21,9 +27,14 @@ class GlobalEval(nn.Module):
 def extract_features(game):
     return game.get_features()
 
-# ── Self-play data generation ───────────────────────────────────────────────
-def generate_game(model, epsilon=0.15):
-    game = engine.Game()
+# ── Single game (must be top-level for pickling across processes) ────────────
+def generate_game_worker(epsilon):
+    """
+    Runs in a subprocess — no model passed in, uses whatever weights
+    are on disk (C++ engine loads them at Game() construction).
+    Returns list of (feats, label).
+    """
+    game    = engine.Game()
     history = []
 
     while not game.is_done():
@@ -36,79 +47,98 @@ def generate_game(model, epsilon=0.15):
             m = best_move(game)
         game.apply_move(m)
 
-    winner = game.get_winner()
-
+    winner  = game.get_winner()
     samples = []
     for feats, player in history:
-        if winner == 0:
-            label = 0.0
-        else:
-            label = 1.0 if winner == player else -1.0
+        label = 0.0 if winner == 0 else (1.0 if winner == player else -1.0)
         samples.append((feats, label))
     return samples
 
+# ── Parallel game batch ──────────────────────────────────────────────────────
+def generate_games_parallel(n, epsilon, n_workers):
+    """Generate n games across n_workers processes, returns flat sample list."""
+    all_samples = []
+    with ProcessPoolExecutor(max_workers=n_workers) as executor:
+        futures = [executor.submit(generate_game_worker, epsilon) for _ in range(n)]
+        for f in as_completed(futures):
+            all_samples.extend(f.result())
+    return all_samples
+
 # ── Training loop ───────────────────────────────────────────────────────────
-def train(n_games=500, epochs_per_batch=10, batch_size=256, lr=1e-3, model=None):
+def train(n_games=500, epochs_per_batch=10, batch_size=256, lr=1e-3,
+          model=None, games_per_batch=20, n_workers=None):
     if model is None:
-        model = GlobalEval()
-    # ↑ removed the erroneous second model = GlobalEval() that was here
+        model = GlobalEval().to(device)
+    if n_workers is None:
+        n_workers = max(1, multiprocessing.cpu_count() - 1)
+
+    print(f"Generating games with {n_workers} workers, {games_per_batch} games per batch")
 
     opt     = torch.optim.Adam(model.parameters(), lr=lr)
     loss_fn = nn.MSELoss()
 
     all_samples = []
     last_loss   = float("nan")
+    n_batches   = n_games // games_per_batch
 
-    pbar = tqdm(range(n_games), desc="Self-play", unit="game")
-    for game_i in pbar:
-        epsilon = max(0.05, 0.3 - game_i / 1000)
-        samples = generate_game(model, epsilon=epsilon)
-        all_samples.extend(samples)
+    pbar = tqdm(range(n_batches), desc="Training", unit="batch")
+    for batch_i in pbar:
+        epsilon = max(0.05, 0.3 - (batch_i * games_per_batch) / 1000)
+
+        # ── Generate games in parallel ──
+        new_samples = generate_games_parallel(games_per_batch, epsilon, n_workers)
+        all_samples.extend(new_samples)
 
         if len(all_samples) > 50_000:
             all_samples = all_samples[-50_000:]
 
-        if (game_i + 1) % 20 == 0:
-            feats  = torch.tensor([s[0] for s in all_samples], dtype=torch.float32)
-            labels = torch.tensor([s[1] for s in all_samples], dtype=torch.float32)
+        # ── Train on buffer ──
+        feats  = torch.tensor([s[0] for s in all_samples], dtype=torch.float32)
+        labels = torch.tensor([s[1] for s in all_samples], dtype=torch.float32)
 
-            dataset = torch.utils.data.TensorDataset(feats, labels)
-            loader  = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        dataset = torch.utils.data.TensorDataset(feats, labels)
+        loader  = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-            model.train()
-            for _ in range(epochs_per_batch):
-                for xb, yb in loader:
-                    pred = model(xb)
-                    loss = loss_fn(pred, yb)
-                    opt.zero_grad()
-                    loss.backward()
-                    opt.step()
+        model.train()
+        for _ in range(epochs_per_batch):
+            for xb, yb in loader:
+                xb, yb = xb.to(device), yb.to(device)
+                pred   = model(xb)
+                loss   = loss_fn(pred, yb)
+                opt.zero_grad()
+                loss.backward()
+                opt.step()
 
-            last_loss = loss.item()
+        last_loss = loss.item()
 
         pbar.set_postfix(
-            loss    = f"{last_loss:.4f}",
-            buf     = len(all_samples),
-            eps     = f"{epsilon:.2f}",
+            loss     = f"{last_loss:.4f}",
+            buf      = len(all_samples),
+            eps      = f"{epsilon:.2f}",
+            games    = (batch_i + 1) * games_per_batch,
+            new_samp = len(new_samples),
         )
+
+        # ── Export weights so workers pick them up next batch ──
+        export_weights(model, "./model_weights.json")
 
     return model
 
 # ── Export to JSON for C++ ──────────────────────────────────────────────────
 def export_weights(model, path="./model_weights.json"):
-    sd  = model.state_dict()
-    out = {}
+    sd        = model.cpu().state_dict()
+    model.to(device)
+    out       = {}
     layer_map = {"net.0": "fc1", "net.2": "fc2", "net.4": "fc3"}
     for pt_name, cpp_name in layer_map.items():
         out[f"{cpp_name}.weight"] = sd[f"{pt_name}.weight"].tolist()
         out[f"{cpp_name}.bias"]   = sd[f"{pt_name}.bias"].tolist()
     with open(path, "w") as f:
         json.dump(out, f)
-    print(f"Saved to {path}")
 
 # ── Load or initialise ──────────────────────────────────────────────────────
 def load_or_init(path="./model_weights.json"):
-    model = GlobalEval()
+    model = GlobalEval().to(device)
     try:
         with open(path) as f:
             data = json.load(f)
@@ -124,7 +154,14 @@ def load_or_init(path="./model_weights.json"):
         export_weights(model, path)
     return model
 
+# ── Entry point ─────────────────────────────────────────────────────────────
 if __name__ == "__main__":
     model = load_or_init("./model_weights.json")
-    model = train(n_games=500, model=model)
+    model = train(
+        n_games         = 500,
+        games_per_batch = 20,   # how many games to generate in parallel per batch
+        n_workers       = None, # None = auto (cpu_count - 1)
+        model           = model,
+    )
     export_weights(model, "./model_weights.json")
+    print("Done")
