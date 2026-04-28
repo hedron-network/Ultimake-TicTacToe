@@ -1,6 +1,7 @@
 import engine
 import math
 import time
+import random
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -8,7 +9,7 @@ import time
 WIN_SCORE  =  1_000_000
 LOSS_SCORE = -1_000_000
 MAX_DEPTH  = 100
-TIME_LIMIT = 4
+TIME_LIMIT = 0.1
 
 # Pre-computed move priority lookup (avoids set creation on every call)
 _MOVE_PRIORITY = [
@@ -17,7 +18,13 @@ _MOVE_PRIORITY = [
 ]
 
 def order_moves(moves):
-    return sorted(moves, key=_MOVE_PRIORITY.__getitem__)
+    a, b, c = [], [], []
+    for m in moves:
+        p = _MOVE_PRIORITY[m]
+        if p == 2: a.append(m)
+        elif p == 1: b.append(m)
+        else: c.append(m)
+    return a + b + c
 
 
 # ---------------------------------------------------------------------------
@@ -33,17 +40,18 @@ _LOWER = 1
 _UPPER = 2
 
 
-def minimax(game, depth, alpha, beta, maximizing):
+def minimax(game, depth, alpha, beta, maximizing=True):
     # --- Terminal / leaf ---
     if game.is_done():
         w = game.get_winner()
-        if w == 1:   return WIN_SCORE
-        if w == -1:  return LOSS_SCORE
-        return 0
+        if w == 0:
+            return 0
+        # current player is whoever is to move now; the one who just moved won
+        current_player = game.get_current_player()
+        return LOSS_SCORE if w != current_player else WIN_SCORE
 
     if depth == 0:
-        raw = game.eval() * 900_000
-        return raw if maximizing else -raw
+        return game.eval() * 9_000
 
     moves = game.get_legal_moves()
     if not moves:
@@ -51,7 +59,7 @@ def minimax(game, depth, alpha, beta, maximizing):
 
     # --- Transposition table lookup ---
     # Use id of a hashable state representation; get_state() must return something hashable.
-    state_key = (game.get_hash(), maximizing)
+    state_key = (game.get_hash(), game.get_current_player())
     tt_entry = _tt.get(state_key)
     if tt_entry is not None:
         cached_depth, flag, cached_val = tt_entry
@@ -70,31 +78,17 @@ def minimax(game, depth, alpha, beta, maximizing):
     moves = order_moves(moves)
     original_alpha = alpha
 
-    if maximizing:
-        value = -math.inf
-        for m in moves:
-            game.apply_move(m)
-            child = minimax(game, depth - 1, alpha, beta, False)
-            game.undo()
-            if child > value:
-                value = child
-                if value > alpha:
-                    alpha = value
-                    if alpha >= beta:
-                        break
-    else:
-        value = math.inf
-        for m in moves:
-            game.apply_move(m)
-            child = minimax(game, depth - 1, alpha, beta, True)
-            game.undo()
-            if child < value:
-                value = child
-                if value < beta:
-                    beta = value
-                    if beta <= alpha:
-                        break
-
+    value = -math.inf
+    for m in moves:
+        game.apply_move(m)
+        child = -minimax(game, depth - 1, -beta, -alpha)  # negamax flip
+        game.undo()
+        if child > value:
+            value = child
+            if value > alpha:
+                alpha = value
+                if alpha >= beta:
+                    break
     # --- Store in TT ---
     if value <= original_alpha:
         flag = _UPPER
@@ -116,7 +110,7 @@ def best_move(game, max_depth=MAX_DEPTH, time_limit=TIME_LIMIT):
     start  = time.monotonic()
 
     state = game.get_state()
-    maximizing_root = (state[90] == 1)
+    maximizing_root = True
 
     # Aspiration window parameters
     ASPIRATION_DELTA = 50_000
@@ -153,7 +147,7 @@ def best_move(game, max_depth=MAX_DEPTH, time_limit=TIME_LIMIT):
                     timeout = True
                     break
                 game.apply_move(m)
-                val = minimax(game, depth - 1, alpha, beta, not maximizing_root)
+                val = -minimax(game, depth - 1, -beta, -alpha)
                 game.undo()
 
                 if val > best_val:
@@ -165,17 +159,14 @@ def best_move(game, max_depth=MAX_DEPTH, time_limit=TIME_LIMIT):
             if timeout:
                 break
 
-            # Check if result fell outside aspiration window → re-search
-            if depth > 1 and best_val <= prev_score - ASPIRATION_DELTA:
-                # Failed low: open lower bound
+            if best_val <= prev_score - ASPIRATION_DELTA:
                 alpha = -math.inf
-                beta  = best_val + 1
-            elif depth > 1 and best_val >= prev_score + ASPIRATION_DELTA:
-                # Failed high: open upper bound
-                alpha = best_val - 1
+                beta  = math.inf   # open both bounds on fail-low
+            elif best_val >= prev_score + ASPIRATION_DELTA:
+                alpha = -math.inf  # open both bounds on fail-high
                 beta  = math.inf
             else:
-                break   # result is inside window, accept it
+                break
 
         if not timeout:
             chosen     = depth_best
@@ -183,8 +174,7 @@ def best_move(game, max_depth=MAX_DEPTH, time_limit=TIME_LIMIT):
 
         elapsed  = time.monotonic() - start
         tt_size  = len(_tt)
-        print(f"  [depth={depth}] move={chosen}  score={best_val:.1f}"
-              f"  ({elapsed:.2f}s)  TT={tt_size}")
+        #print(f"  [depth={depth}] move={chosen}  score={best_val:.1f} ({elapsed:.2f}s)  TT={tt_size}")
 
         if best_val >= WIN_SCORE:
             break
@@ -269,7 +259,7 @@ def play_game(human_starts=True):
         print("Human wins!")
     else:
         print("AI wins!")
-def play_AIgame():
+def play_AIgame(human_starts=True):
     global _tt
     _tt = {}
 
@@ -277,35 +267,74 @@ def play_AIgame():
     move_number = 0
 
     print("\n=== Ultimate Tic Tac Toe — Minimax Alpha-Beta ===")
-    human_turn=True
+    print(f"  Human {'goes first (player 1 / X)' if human_starts else 'is player 2 / O'}")
+
+    human_turn = human_starts
 
     while not game.is_done():
         move_number += 1
         legal = game.get_legal_moves()
 
-        print("\nCurrent board:")
-        game.print_board()
-        print(f"\n--- Move {move_number} | {'1' if human_turn else '2'} ---")
+        print(f"\n--- Move {move_number} | {'Random' if human_turn else 'AI'} ---")
 
-        
-        t0 = time.monotonic()
-        m  = best_move(game)
-        game.apply_move(m)
-        print(f"  → AI plays {move_to_coord(m)}  ({time.monotonic() - t0:.2f}s)")
+        if human_turn:
+            m=random.choice(legal)
+            game.apply_move(m)
 
-        print("\nBoard after move:")
+        else:
+            t0 = time.monotonic()
+            m  = best_move(game)
+            game.apply_move(m)
+            print(f"  → AI plays {move_to_coord(m)}  ({time.monotonic() - t0:.2f}s)")
+
         game.print_board()
         human_turn = not human_turn
+
+    print("\nFinal board:")
+    game.print_board()
 
     w = game.get_winner()
     print("\n=== Game over ===")
     if w == 0:
         print("Draw!")
+    elif (w == 1 and human_starts) or (w == -1 and not human_starts):
+        print("Random wins!")
     else:
-        print(w,"wins")
+        print("AI wins!")
 
+def BenchmarkModel():
+    won = 0
+    for i in range(0,40):
+        print("game ",i)
+        global _tt
+        _tt = {}
+
+        game        = engine.Game()
+        human_turn = True
+        move_number=0
+        while not game.is_done():
+            move_number += 1
+            legal = game.get_legal_moves()
+            if human_turn:
+                m=random.choice(legal)
+                game.apply_move(m)
+
+            else:
+                m  = best_move(game)
+                game.apply_move(m)
+            human_turn = not human_turn
+
+        w = game.get_winner()
+        if w == 0:
+            pass
+        elif (w == 1 ):
+            pass
+        else:
+            won+=1
+    print("won ",won)
 if __name__ == "__main__":
     choice = input("Who goes first? [h]uman / [a]i: ").strip().lower()
     if(choice == "n"):
         play_AIgame()
-    play_game(human_starts=(choice != "a"))
+    else:
+        play_game(human_starts=(choice != "a"))

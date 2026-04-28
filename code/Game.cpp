@@ -11,12 +11,34 @@ Game::Game()
     }
     NeuralNet::loadWeights(".\\model_weights.json");
 }
-float Game::eval(){
-    float result = 1.0f;
+float Game::eval() {
+    // build 90-float feature vector (same logic as Python extract_features)
+    float input[90];
+    for (int b = 0; b < 9; b++)
+        for (int c = 0; c < 9; c++) {
+            int idx = b*9+c, mask = 1<<c;
+            input[idx] = (subX[b]&mask) ? 1.f : (subO[b]&mask) ? -1.f : 0.f;
+        }
     for (int i = 0; i < 9; i++) {
-        result *= NeuralNet::evaluate(subX[i], subO[i]);
+        int mask = 1<<i;
+        input[81+i] = (bigX&mask) ? 1.f : (bigO&mask) ? -1.f : 0.f;
     }
-    return result;  // positive = good for X (player 1), negative = good for O (player -1)
+    float score = NeuralNet::evaluate_global(input);  // new function, same structure
+    return currentPlayer == 1 ? score : -score;
+}
+// In your Game class, add:
+std::vector<float> Game::get_features() const {
+    std::vector<float> feats(90);
+    for (int b = 0; b < 9; b++)
+        for (int c = 0; c < 9; c++) {
+            int mask = 1 << c;
+            feats[b*9+c] = (subX[b]&mask) ? 1.f : (subO[b]&mask) ? -1.f : 0.f;
+        }
+    for (int i = 0; i < 9; i++) {
+        int mask = 1 << i;
+        feats[81+i] = (bigX&mask) ? 1.f : (bigO&mask) ? -1.f : 0.f;
+    }
+    return feats;
 }
 bool Game::IsBoardFull(const int &boardIndex) const
 {
