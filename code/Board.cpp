@@ -56,7 +56,11 @@ namespace BoardHandling
         std::vector<int> result;
         while (b) {
             unsigned long index;
-            _BitScanForward(&index, b);
+            #ifdef _WIN32
+                _BitScanForward(&index, b);
+            #else
+                index = __builtin_ctz(b);
+            #endif
             int pos =int(index);// count trailing zeros
             result.push_back(boardNumber*9+pos);
             b &= (b - 1); // clear lowest set bit

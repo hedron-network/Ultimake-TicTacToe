@@ -1,7 +1,12 @@
 #pragma once
 #include "board.h"
 #include "neural_net.h"
-#include <intrin.h>   
+
+#ifdef _WIN32
+    #include <intrin.h>
+#else
+    #include <x86intrin.h>
+#endif  
 #include <cstdint>
 #include <vector>
 struct Move{
@@ -23,7 +28,7 @@ public:
     bool is_done();
     float eval();
     void PrintGame() const;
-    uint64_t Game::get_hash() const;
+    uint64_t get_hash() const;
     int GetCurrentPlayer() const;
     std::vector<float> get_features() const ;
 
