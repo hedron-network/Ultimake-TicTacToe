@@ -69,5 +69,6 @@ namespace BoardHandling
     void MakeAllZeros(board &board){
         board &= 0;
     }
+   
     
 }
