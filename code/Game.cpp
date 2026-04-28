@@ -9,7 +9,7 @@ Game::Game()
         subX[i] = 0;
         subO[i] = 0;
     }
-    NeuralNet::loadWeights(".\\model_weights.json");
+    NeuralNet::loadWeights("./model_weights.json");
 }
 float Game::eval() {
     // build 90-float feature vector (same logic as Python extract_features)
