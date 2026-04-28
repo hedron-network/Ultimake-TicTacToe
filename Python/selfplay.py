@@ -2,7 +2,7 @@
 import torch
 import torch.nn as nn
 import engine, random, json
-from main import best_move
+from main import best_move, _tt as main_tt
 from tqdm import tqdm
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import multiprocessing
@@ -27,31 +27,67 @@ class GlobalEval(nn.Module):
 def extract_features(game):
     return game.get_features()
 
-# ── Single game (must be top-level for pickling across processes) ────────────
+# ── Single game worker ───────────────────────────────────────────────────────
 def generate_game_worker(epsilon):
     """
-    Runs in a subprocess — no model passed in, uses whatever weights
-    are on disk (C++ engine loads them at Game() construction).
-    Returns list of (feats, label).
+    Runs in a subprocess. Reloads latest weights before starting.
+
+    FIX 1: Calls game.reload_weights() so each worker uses the most recently
+            exported weights, not the ones loaded at Game() construction.
+
+    FIX 3: 50% of games are AI (player 1) vs random (player 2) so the model
+            sees positions where it's being beaten and learns to avoid them.
+
+    FIX 4: player sign bug fixed — get_current_player() returns 1 or 0,
+            but get_winner() returns 1 or -1. We map player → player_sign
+            before comparing so player 2's labels are correct.
+
+    Also applies temporal discount: early moves receive a weaker label
+    because the outcome is less certain that far from the end.
     """
-    game    = engine.Game()
+    game = engine.Game()
+    game.reload_weights()   # FIX 1: pick up latest exported weights
+
     history = []
 
-    while not game.is_done():
-        feats = extract_features(game)
-        history.append((feats, game.get_current_player()))
+    # FIX 3: mixed opponent — 50% self-play, 50% AI (p1) vs random (p2)
+    vs_random = random.random() < 0.5
 
-        if random.random() < epsilon:
+    while not game.is_done():
+        feats   = extract_features(game)
+        current = game.get_current_player()   # returns 1 or 0
+        history.append((feats, current))
+
+        is_random_turn = (
+            random.random() < epsilon or
+            (vs_random and current != 1)      # player 2 always random in vs_random games
+        )
+
+        if is_random_turn:
             m = random.choice(game.get_legal_moves())
         else:
             m = best_move(game)
         game.apply_move(m)
 
-    winner  = game.get_winner()
+    winner = game.get_winner()   # returns 1, -1, or 0
+
+    n       = len(history)
     samples = []
-    for feats, player in history:
-        label = 0.0 if winner == 0 else (1.0 if winner == player else -1.0)
+    for i, (feats, player) in enumerate(history):
+        # FIX 4: map player (1 or 0) to the same ±1 space as get_winner()
+        player_sign = 1 if player == 1 else -1
+
+        # Temporal discount: positions near the end get full signal,
+        # early positions get a proportionally weaker label
+        discount = (i + 1) / n
+
+        if winner == 0:
+            label = 0.0
+        else:
+            label = (1.0 if winner == player_sign else -1.0) * discount
+
         samples.append((feats, label))
+
     return samples
 
 # ── Parallel game batch ──────────────────────────────────────────────────────
@@ -64,9 +100,44 @@ def generate_games_parallel(n, epsilon, n_workers):
             all_samples.extend(f.result())
     return all_samples
 
-# ── Training loop ───────────────────────────────────────────────────────────
-def train(n_games=500, epochs_per_batch=10, batch_size=256, lr=1e-3,
-          model=None, games_per_batch=20, n_workers=None):
+# ── Win-rate benchmark ───────────────────────────────────────────────────────
+def benchmark(n=20):
+    """
+    Plays n games of AI (player 1, uses best_move) vs pure random (player 2).
+    Returns the AI win rate as a float in [0, 1].
+    """
+    import main
+    wins = 0
+    for _ in range(n):
+        main._tt.clear()          # fresh TT for every game
+        game   = engine.Game()
+        game.reload_weights()
+        turn   = 1               # player 1 starts
+        ai_player = 1
+
+        while not game.is_done():
+            legal = game.get_legal_moves()
+            if turn == ai_player:
+                m = best_move(game)
+            else:
+                m = random.choice(legal)
+            game.apply_move(m)
+            turn = 0 if turn == 1 else 1   # flip between 1 and 0
+
+        w = game.get_winner()    # 1, -1, or 0
+        if w == 1:               # player 1 (AI) won
+            wins += 1
+
+    return wins / n
+
+# ── Training loop ────────────────────────────────────────────────────────────
+def train(n_games=500, epochs_per_batch=5, batch_size=256, lr=3e-4,
+          model=None, games_per_batch=20, n_workers=None,
+          benchmark_every=5):
+    """
+    FIX 2: epochs_per_batch reduced from 10 → 5 to avoid overfitting stale data.
+            lr reduced from 1e-3 → 3e-4 for stability.
+    """
     if model is None:
         model = GlobalEval().to(device)
     if n_workers is None:
@@ -111,6 +182,9 @@ def train(n_games=500, epochs_per_batch=10, batch_size=256, lr=1e-3,
 
         last_loss = loss.item()
 
+        # ── Export weights so workers pick them up next batch ──
+        export_weights(model, "./model_weights.json")
+
         pbar.set_postfix(
             loss     = f"{last_loss:.4f}",
             buf      = len(all_samples),
@@ -119,8 +193,10 @@ def train(n_games=500, epochs_per_batch=10, batch_size=256, lr=1e-3,
             new_samp = len(new_samples),
         )
 
-        # ── Export weights so workers pick them up next batch ──
-        export_weights(model, "./model_weights.json")
+        # ── Periodic win-rate benchmark ──
+        if (batch_i + 1) % benchmark_every == 0:
+            wr = benchmark(20)
+            tqdm.write(f"  [batch {batch_i+1}] Win rate vs random: {wr:.0%}")
 
     return model
 
@@ -158,10 +234,13 @@ def load_or_init(path="./model_weights.json"):
 if __name__ == "__main__":
     model = load_or_init("./model_weights.json")
     model = train(
-        n_games         = 500,
-        games_per_batch = 20,   # how many games to generate in parallel per batch
-        n_workers       = None, # None = auto (cpu_count - 1)
-        model           = model,
+        n_games          = 500,   # more games for better coverage
+        games_per_batch  = 20,
+        epochs_per_batch = 5,      # reduced from 10 to avoid overfitting stale data
+        lr               = 3e-4,   # reduced from 1e-3 for stability
+        n_workers        = None,   # None = auto (cpu_count - 1)
+        benchmark_every  = 5,      # print win rate every 5 batches
+        model            = model,
     )
     export_weights(model, "./model_weights.json")
     print("Done")

@@ -51,7 +51,7 @@ def minimax(game, depth, alpha, beta, maximizing=True):
         return LOSS_SCORE if w != current_player else WIN_SCORE
 
     if depth == 0:
-        return game.eval() * 9_000
+        return game.eval() * 100_000
 
     moves = game.get_legal_moves()
     if not moves:
@@ -304,7 +304,7 @@ def play_AIgame(human_starts=True):
 
 def BenchmarkModel():
     won = 0
-    for i in range(0,40):
+    for i in range(0,10):
         print("game ",i)
         global _tt
         _tt = {}

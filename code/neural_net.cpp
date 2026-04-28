@@ -22,6 +22,9 @@ namespace NeuralNet {
         fc3_w = data["fc3.weight"].get<std::vector<std::vector<float>>>();
         fc3_b = data["fc3.bias"].get<std::vector<float>>();
     }
+    void reloadWeights(const std::string& path) {
+        loadWeights(path);  // just call it again, it overwrites the statics
+    }
     float evaluate_raw(const float* input, int input_size) {
         
         float h1[128], h2[64];
