@@ -21,39 +21,47 @@ namespace NeuralNet {
         fc2_b = data["fc2.bias"].get<std::vector<float>>();
         fc3_w = data["fc3.weight"].get<std::vector<std::vector<float>>>();
         fc3_b = data["fc3.bias"].get<std::vector<float>>();
+        buildCache();
     }
-    void reloadWeights(const std::string& path) {
-        loadWeights(path);  // just call it again, it overwrites the statics
-    }
-    float evaluate_raw(const float* input, int input_size) {
-        
-        float h1[128], h2[64];
+    float eval_cache[512][512];  // ~1 MB, fits in L2
 
-        // FC1: 90 → 128
-        for (int i = 0; i < 128; i++) {
+    void buildCache() {
+        for (int p1 = 0; p1 < 512; p1++)
+            for (int p2 = 0; p2 < 512; p2++)
+                if ((p1 & p2) == 0)  // valid: no cell owned by both
+                    eval_cache[p1][p2] = evaluate_raw(p1, p2);
+    }
+
+    // Then your hot-path eval becomes a single array lookup:
+    float evaluate(unsigned short p1, unsigned short p2) {
+        return eval_cache[p1 & 0x1FF][p2 & 0x1FF];
+    }
+   float evaluate_raw(unsigned short p1, unsigned short p2) {
+        float input[9];
+        for (int i = 0; i < 9; i++) {
+            if      (p1 & (1 << i)) input[i] =  1.0f;
+            else if (p2 & (1 << i)) input[i] = -1.0f;
+            else                    input[i] =  0.0f;
+        }
+
+        float h1[64], h2[64];
+
+        for (int i = 0; i < 64; i++) {
             h1[i] = fc1_b[i];
-            for (int j = 0; j < input_size; j++)
+            for (int j = 0; j < 9; j++)
                 h1[i] += fc1_w[i][j] * input[j];
             h1[i] = relu(h1[i]);
         }
-
-        // FC2: 128 → 64
         for (int i = 0; i < 64; i++) {
             h2[i] = fc2_b[i];
-            for (int j = 0; j < 128; j++)
+            for (int j = 0; j < 64; j++)
                 h2[i] += fc2_w[i][j] * h1[j];
             h2[i] = relu(h2[i]);
         }
 
-        // FC3: 64 → 1
         float output = fc3_b[0];
         for (int j = 0; j < 64; j++)
             output += fc3_w[0][j] * h2[j];
-
         return std::tanh(output);
     }
-
-    float evaluate_global(const float* input) {
-        return evaluate_raw(input, 90);
     }
-}

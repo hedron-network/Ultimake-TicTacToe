@@ -6,7 +6,6 @@ namespace py = pybind11;
 PYBIND11_MODULE(engine, m) {
     py::class_<Game>(m, "Game")
         .def(py::init<>())
-        .def("get_state", &Game::get_state)     // vector<float>
         .def("undo", &Game::undo)
         .def("get_legal_moves", &Game::get_legal_moves)
         .def("apply_move", &Game::apply_move)
@@ -15,8 +14,6 @@ PYBIND11_MODULE(engine, m) {
         .def("eval", &Game::eval)
         .def("print_board", & Game::PrintGame)
         .def("get_hash", &Game::get_hash)
-        .def("get_current_player", &Game::GetCurrentPlayer)
-        .def("get_features", &Game::get_features)
-        .def("reload_weights", [](Game&){ NeuralNet::loadWeights(".\\model_weights.json"); });
+        .def("get_current_player", &Game::GetCurrentPlayer);
         
 }

@@ -12,33 +12,13 @@ Game::Game()
     NeuralNet::loadWeights("./model_weights.json");
 }
 float Game::eval() {
-    // build 90-float feature vector (same logic as Python extract_features)
-    float input[90];
-    for (int b = 0; b < 9; b++)
-        for (int c = 0; c < 9; c++) {
-            int idx = b*9+c, mask = 1<<c;
-            input[idx] = (subX[b]&mask) ? 1.f : (subO[b]&mask) ? -1.f : 0.f;
-        }
-    for (int i = 0; i < 9; i++) {
-        int mask = 1<<i;
-        input[81+i] = (bigX&mask) ? 1.f : (bigO&mask) ? -1.f : 0.f;
+    float score = 0;
+    for(int i =0; i<9;i++){
+        score+=NeuralNet::evaluate(subX[i],subO[i]); 
     }
-    float score = NeuralNet::evaluate_global(input);  // new function, same structure
+    score = score/9.f;
+    score += NeuralNet::evaluate(bigX,bigO);
     return currentPlayer == 1 ? score : -score;
-}
-// In your Game class, add:
-std::vector<float> Game::get_features() const {
-    std::vector<float> feats(90);
-    for (int b = 0; b < 9; b++)
-        for (int c = 0; c < 9; c++) {
-            int mask = 1 << c;
-            feats[b*9+c] = (subX[b]&mask) ? 1.f : (subO[b]&mask) ? -1.f : 0.f;
-        }
-    for (int i = 0; i < 9; i++) {
-        int mask = 1 << i;
-        feats[81+i] = (bigX&mask) ? 1.f : (bigO&mask) ? -1.f : 0.f;
-    }
-    return feats;
 }
 bool Game::IsBoardFull(const int &boardIndex) const
 {
@@ -88,49 +68,6 @@ bool Game::AllSubBoardsFinished() const
     }
     return true;
 }
-    std::vector<float> Game::get_state() {
-        std::vector<float> state;
-        state.reserve(406);
-
-        // Determine "my" and "opp" boards based on current player
-        board* myBoards  = (currentPlayer == 1) ? subX : subO;
-        board* oppBoards = (currentPlayer == 1) ? subO : subX;
-        board  myBig     = (currentPlayer == 1) ? bigX  : bigO;
-        board  oppBig    = (currentPlayer == 1) ? bigO  : bigX;
-
-        // Plane 0: current player's pieces (81 cells)
-        for (int b = 0; b < 9; ++b)
-            for (int c = 0; c < 9; ++c)
-                state.push_back((myBoards[b] & BoardHandling::IntToBoard(c)) ? 1.f : 0.f);
-
-        // Plane 1: opponent's pieces (81 cells)
-        for (int b = 0; b < 9; ++b)
-            for (int c = 0; c < 9; ++c)
-                state.push_back((oppBoards[b] & BoardHandling::IntToBoard(c)) ? 1.f : 0.f);
-
-        // Plane 2: sub-boards won by current player (81 cells, entire board = 1)
-        for (int b = 0; b < 9; ++b) {
-            float val = (myBig & BoardHandling::IntToBoard(b)) ? 1.f : 0.f;
-            for (int c = 0; c < 9; ++c) state.push_back(val);
-        }
-
-        // Plane 3: sub-boards won by opponent (81 cells)
-        for (int b = 0; b < 9; ++b) {
-            float val = (oppBig & BoardHandling::IntToBoard(b)) ? 1.f : 0.f;
-            for (int c = 0; c < 9; ++c) state.push_back(val);
-        }
-
-        // Plane 4: valid target boards (81 cells)
-        for (int b = 0; b < 9; ++b) {
-            float val = (activeBoard == -1 || activeBoard == b) && !IsBoardFinished(b) ? 1.f : 0.f;
-            for (int c = 0; c < 9; ++c) state.push_back(val);
-        }
-
-        // Scalar: current player
-        state.push_back(currentPlayer == 1 ? 1.f : 0.f);
-
-        return state; // length 406
-    }
     void Game::undo(){
         Move lastMove = moveHistory.back();
         if(currentPlayer==1){
