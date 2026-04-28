@@ -8,7 +8,7 @@ import time
 WIN_SCORE  =  1_000_000
 LOSS_SCORE = -1_000_000
 MAX_DEPTH  = 10
-TIME_LIMIT = 1.0
+TIME_LIMIT = 4.0
 
 # Pre-computed move priority lookup (avoids set creation on every call)
 _MOVE_PRIORITY = [
@@ -42,7 +42,8 @@ def minimax(game, depth, alpha, beta, maximizing):
         return 0
 
     if depth == 0:
-        return game.eval() * 900_000
+        raw = game.eval() * 900_000
+        return raw if maximizing else -raw
 
     moves = game.get_legal_moves()
     if not moves:

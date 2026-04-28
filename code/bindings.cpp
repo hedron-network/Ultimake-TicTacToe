@@ -14,5 +14,6 @@ PYBIND11_MODULE(engine, m) {
         .def("is_done", &Game::is_done)
         .def("eval", &Game::eval)
         .def("print_board", & Game::PrintGame)
-        .def("get_hash", &Game::get_hash);
+        .def("get_hash", &Game::get_hash)
+        .def("get_current_player", &Game::GetCurrentPlayer);
 }

@@ -24,6 +24,7 @@ public:
     float eval();
     void PrintGame() const;
     uint64_t Game::get_hash() const;
+    int GetCurrentPlayer() const;
 
 private:
     void RecordMove(int move);
@@ -33,7 +34,6 @@ private:
     bool TryMove(const int& boardIndex, const int& cellIndex);
     bool IsGameOver() const;
     int GetWinner() const;
-    int GetCurrentPlayer() const;
     int GetActiveBoard() const;
     std::vector<Move> moveHistory;
 

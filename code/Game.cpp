@@ -12,11 +12,11 @@ Game::Game()
     NeuralNet::loadWeights(".\\model_weights.json");
 }
 float Game::eval(){
-    float result = 1.0f;
+    float sum = 0;
     for (int i = 0; i < 9; i++) {
-        result *= NeuralNet::evaluate(subX[i], subO[i]);
+        sum += NeuralNet::evaluate(subX[i], subO[i]);
     }
-    return result;  // positive = good for X (player 1), negative = good for O (player -1)
+    return sum/9.f;  // positive = good for X (player 1), negative = good for O (player -1)
 }
 bool Game::IsBoardFull(const int &boardIndex) const
 {
