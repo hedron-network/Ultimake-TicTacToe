@@ -1,6 +1,8 @@
 #pragma once
 #include "board.h"
 #include "neural_net.h"
+#include <intrin.h>   
+#include <cstdint>
 #include <vector>
 struct Move{
     board prevBX;
@@ -21,6 +23,7 @@ public:
     bool is_done();
     float eval();
     void PrintGame() const;
+    uint64_t Game::get_hash() const;
 
 private:
     void RecordMove(int move);

@@ -12,18 +12,11 @@ Game::Game()
     NeuralNet::loadWeights(".\\model_weights.json");
 }
 float Game::eval(){
-    float Eval = 1;
-    if(currentPlayer==1){
-        for(int i=0;i<9;i++){
-            Eval *= NeuralNet::evaluate(subX[i], subO[i]);
-        }
+    float result = 1.0f;
+    for (int i = 0; i < 9; i++) {
+        result *= NeuralNet::evaluate(subX[i], subO[i]);
     }
-    else{
-        for(int i=0;i<9;i++){
-            Eval *= NeuralNet::evaluate(subO[i], subX[i]);
-        }
-    }
-    return Eval;
+    return result;  // positive = good for X (player 1), negative = good for O (player -1)
 }
 bool Game::IsBoardFull(const int &boardIndex) const
 {
@@ -295,4 +288,45 @@ int Game::GetActiveBoard() const
     return activeBoard;
 }
 
+    // Zobrist table — initialized once at program start
+    static uint64_t ZOBRIST[9][9][2];  // [board][cell][player 0=X,1=O]
+    static uint64_t ZOBRIST_ACTIVE[10]; // active board: 0–8, or 9 for "any"
+    static uint64_t ZOBRIST_PLAYER;    // XOR in when it's O's turn
+    static bool zobrist_ready = false;
 
+    static void init_zobrist() {
+        // Simple xorshift64 seeded deterministically
+        uint64_t s = 0xDEADBEEFCAFEBABEULL;
+        auto rng = [&]() {
+            s ^= s << 13; s ^= s >> 7; s ^= s << 17; return s;
+        };
+        for (auto& b : ZOBRIST)
+            for (auto& c : b)
+                for (auto& p : c) p = rng();
+        for (auto& v : ZOBRIST_ACTIVE) v = rng();
+        ZOBRIST_PLAYER = rng();
+        zobrist_ready = true;
+    }
+
+    uint64_t Game::get_hash() const {
+    if (!zobrist_ready) init_zobrist();
+
+    uint64_t h = 0;
+    for (int b = 0; b < 9; ++b) {
+        unsigned long idx;
+        board mx = subX[b], mo = subO[b];
+        while (mx) {
+            _BitScanForward(&idx, mx);
+            h ^= ZOBRIST[b][idx][0];
+            mx &= mx - 1;
+        }
+        while (mo) {
+            _BitScanForward(&idx, mo);
+            h ^= ZOBRIST[b][idx][1];
+            mo &= mo - 1;
+        }
+    }
+    h ^= ZOBRIST_ACTIVE[activeBoard == -1 ? 9 : activeBoard];
+    if (currentPlayer != 1) h ^= ZOBRIST_PLAYER;
+    return h;
+}
