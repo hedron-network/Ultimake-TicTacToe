@@ -1,5 +1,9 @@
 #pragma once
-#include <intrin.h>
+#ifdef _WIN32
+    #include <intrin.h>
+#else
+    #include <x86intrin.h>
+#endif
 #include <vector>
 typedef unsigned short board;
 
