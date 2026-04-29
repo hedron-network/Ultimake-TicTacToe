@@ -2,10 +2,10 @@
 <Project>
   <ProjectOutputs>
     <ProjectOutput>
-      <FullPath>C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\x64\Debug\ZERO_CHECK</FullPath>
+      <FullPath>C:\Users\perso\Desktop\Rendu FIA Nathan Raphael Raphael Pierre\build\x64\Debug\ZERO_CHECK</FullPath>
     </ProjectOutput>
     <ProjectOutput>
-      <FullPath>C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\Debug\engine.cp313-win_amd64.pyd</FullPath>
+      <FullPath>C:\Users\perso\Desktop\Rendu FIA Nathan Raphael Raphael Pierre\build\Debug\engine.cp313-win_amd64.pyd</FullPath>
     </ProjectOutput>
   </ProjectOutputs>
   <ContentFiles />

@@ -72,10 +72,10 @@ bool Game::AllSubBoardsFinished() const
         bigO=lastMove.prevBO;
         activeBoard=lastMove.prevActiveBoard;
         if(currentPlayer==1){
-            subX[lastMove.chosenBoard]=lastMove.prevBoard;
+            subX[lastMove.chosenBoard]=lastMove.prevBoardX;
         }
         else{
-            subO[lastMove.chosenBoard]=lastMove.prevBoard;
+            subO[lastMove.chosenBoard]=lastMove.prevBoardO;
         }
         moveHistory.pop_back();
     }
@@ -119,10 +119,10 @@ bool Game::AllSubBoardsFinished() const
         currentMove.prevActiveBoard = activeBoard;
         currentMove.chosenBoard=move/9;
         if(currentPlayer==1){
-            currentMove.prevBoard=subX[currentMove.chosenBoard];
+            currentMove.prevBoardX=subX[currentMove.chosenBoard];
         }
         else{
-            currentMove.prevBoard=subO[currentMove.chosenBoard];
+            currentMove.prevBoardO=subO[currentMove.chosenBoard];
         }
         moveHistory.push_back(currentMove);
     }
@@ -217,6 +217,9 @@ void Game::PrintGame() const
         std::cout << "Active board: any unfinished board\n";
     }
     std::cout << "Next player: " << (currentPlayer == 1 ? 'X' : 'O') << '\n';
+
+    std::cout << "BigO :"<< bigO<<std::endl;
+    std::cout << "BigX :"<< bigX<<std::endl;
 }
 
 bool Game::IsGameOver() const
@@ -243,90 +246,118 @@ float Game::eval() {
     float big   = EvaluateBigBoard();
     float sub   = 0;
     float tempo = EvaluateForcedMovePressure();
-
+ 
     for (int i = 0; i < 9; i++) {
         sub += BoardWeight(i) * EvaluateSubBoard(i);
     }
-
-    float score = 5.0f * big + 1.0f * sub + 2.0f * tempo;
-    score = std::clamp(score, -900000.0f, 900000.0f);
-
-    // Negamax requires score from the perspective of the player TO MOVE
+ 
+    float score = 1.5f * big + 1.0f * sub + 0.5f * tempo;
+    score = std::clamp(score, -800000.0f, 800000.0f);
+ 
+    // Score is always from X's perspective.
+    // The Python minimax wrapper flips it for O's turn.
     return score;
 }
+ 
 float Game::EvaluateForcedMovePressure() {
+    // Returns a score from X's perspective.
+    // Positive = good for X, negative = bad for X.
     if (activeBoard == -1)
         return 0;
-
+ 
     float score = 0;
-    // "opponent" board is whichever player is NOT moving
-    board* oppBoard = (currentPlayer == 1) ? subO : subX;
-    board* myBoard  = (currentPlayer == 1) ? subX : subO;
-
-    // Forcing opponent into a board they've already won is great for us
-    if (BoardHandling::HasWon(oppBoard[activeBoard]))
-        score += 3000;
-
-    // Forcing opponent into a board WE've won is bad for us
-    if (BoardHandling::HasWon(myBoard[activeBoard]))
-        score -= 3000;
-
-    if (IsBoardFinished(activeBoard))
-        score += 500;
-
+ 
+    // If we're forcing the opponent into a board where THEY have won,
+    // they can play anywhere — this is good FOR THEM, bad for us.
+    // If we're forcing them into a board where WE have won,
+    // they can play anywhere — also good for them, bad for us.
+    // The really meaningful thing: forcing them into a *finished* board
+    // means they can play anywhere, which hurts us. Forcing them into
+    // a board where we have a strong position is good.
+ 
+    // From X's absolute perspective:
+    bool xWonActive = BoardHandling::HasWon(subX[activeBoard]);
+    bool oWonActive = BoardHandling::HasWon(subO[activeBoard]);
+    bool finished   = IsBoardFinished(activeBoard);
+ 
+    // If the active board is finished, opponent plays anywhere — mild negative
+    if (finished) {
+        // Slight penalty: we gave opponent freedom
+        score -= 200;
+    } else {
+        // Extra value for having a strong presence on the forced board
+        score += EvaluateSubBoard(activeBoard) * 0.3f;
+    }
+ 
+    // If it's X's turn and active board is one X is winning on, good for X
+    // If it's O's turn and active board is one O is winning on, bad for X
+    if (currentPlayer == 1) {
+        // X is moving into activeBoard — reward X's presence there
+        // (already captured in the sub-board eval above)
+    } else {
+        // O is being forced into activeBoard — if X controls it, great for X
+        if (!finished) {
+            score += EvaluateSubBoard(activeBoard) * 0.5f; // X perspective: positive if X leads there
+        }
+    }
+ 
     return score;
 }
+ 
 float Game::BoardWeight(int i) {
     if ((bigX | bigO) & BoardHandling::IntToBoard(i))
-        return 0.2f; // finished boards matter less
-
+        return 0.1f; // finished boards barely matter
+ 
     if (i == activeBoard)
-        return 1.5f; // forced board is CRITICAL
-
-    return 1.0f;
+        return 1.5f; // the forced board is critical
+ 
+    // Centre board is worth more than corners, corners more than edges
+    if (i == 4) return 1.3f;                      // centre
+    if (i == 0 || i == 2 || i == 6 || i == 8)
+        return 1.1f;                               // corners
+    return 1.0f;                                   // edges
 }
+ 
 float Game::EvaluateSubBoard(int i) {
     const board X = subX[i];
     const board O = subO[i];
-
-    if (BoardHandling::HasWon(X)) return 10000;
+ 
+    if (BoardHandling::HasWon(X)) return  10000;
     if (BoardHandling::HasWon(O)) return -10000;
-
+ 
     float score = 0;
-
+ 
+    // All 8 winning lines in a 3×3 board (bit positions 0-8)
     const board winning[8] = {
-        0x007, 0x038, 0x1C0,
-        0x049, 0x092, 0x124,
-        0x111, 0x054
+        0x007, 0x038, 0x1C0,   // rows
+        0x049, 0x092, 0x124,   // cols
+        0x111, 0x054           // diagonals
     };
-
+ 
     for (auto line : winning) {
         int x = popcount(X & line);
         int o = popcount(O & line);
-
-        if (x && o) continue;
-
-        if (x == 2 && o == 0) score += 200;
-        if (x == 1 && o == 0) score += 20;
-
-        if (o == 2 && x == 0) score -= 200;
-        if (o == 1 && x == 0) score -= 20;
+ 
+        if (x && o) continue; // blocked — no value
+ 
+        if (x == 2) score += 200;
+        if (x == 1) score +=  20;
+        if (o == 2) score -= 200;
+        if (o == 1) score -=  20;
     }
-
+ 
+    // Small bonus for centre cell control
+    const board centre = BoardHandling::IntToBoard(4);
+    if (X & centre) score +=  15;
+    if (O & centre) score -=  15;
+ 
     return score;
 }
-int Game::popcount(uint64_t x) {
-    int c = 0;
-    while (x) {
-        x &= (x - 1);
-        c++;
-    }
-    return c;
-}
+ 
 float Game::EvaluateBigBoard() {
-    const float WIN = 1e6;
+    const float WIN = 900000;
 
-    if (BoardHandling::HasWon(bigX)) return WIN;
+    if (BoardHandling::HasWon(bigX)) return  WIN;
     if (BoardHandling::HasWon(bigO)) return -WIN;
 
     float score = 0;
@@ -341,20 +372,47 @@ float Game::EvaluateBigBoard() {
         int x = popcount(bigX & line);
         int o = popcount(bigO & line);
 
-        if (x && o) continue; // blocked line
+        if (x && o) continue;
 
-        if (x == 2 && o == 0) score += 50000;
-        if (x == 1 && o == 0) score += 5000;
+        if (x == 2) score += 50000;
+        if (x == 1) score +=  5000;
+        if (o == 2) score -= 50000;
+        if (o == 1) score -=  5000;
 
-        if (o == 2 && x == 0) score -= 50000;
-        if (o == 1 && x == 0) score -= 5000;
+        // Alignment nudge: for each unclaimed board on this line,
+        // add a fraction of its sub-board eval so the AI prefers
+        // targeting boards that extend an existing chain.
+        board remaining = line & ~bigX & ~bigO;
+        while (remaining) {
+            unsigned long idx;
+            #ifdef _WIN32
+                _BitScanForward(&idx, remaining);
+            #else
+                idx = __builtin_ctz(remaining);
+            #endif
+            remaining &= remaining - 1;
+            float sub = EvaluateSubBoard(idx);
+            // Scale down heavily — this is purely a tie-breaker
+            if (!o) score += sub * 0.05f;
+            if (!x) score -= sub * 0.05f;
+        }
     }
+
+    // Centre meta-board is especially valuable
+    const board centre = BoardHandling::IntToBoard(4);
+    if (bigX & centre) score +=  8000;
+    if (bigO & centre) score -=  8000;
 
     return score;
 }
-
    // Zobrist table
-
+int Game::popcount(uint64_t x) {
+#ifdef _WIN32
+    return __popcnt64(x);
+#else
+    return __builtin_popcountll(x);
+#endif
+}
 
 
 

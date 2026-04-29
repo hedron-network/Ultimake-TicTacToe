@@ -1,0 +1,44 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeFiles\c759ba53655c926eda07f8dfcf601fb1\nlohmann_json-populate-mkdir.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeFiles\c759ba53655c926eda07f8dfcf601fb1\nlohmann_json-populate-download.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeFiles\c759ba53655c926eda07f8dfcf601fb1\nlohmann_json-populate-update.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeFiles\c759ba53655c926eda07f8dfcf601fb1\nlohmann_json-populate-patch.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeFiles\c759ba53655c926eda07f8dfcf601fb1\nlohmann_json-populate-configure.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeFiles\c759ba53655c926eda07f8dfcf601fb1\nlohmann_json-populate-build.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeFiles\c759ba53655c926eda07f8dfcf601fb1\nlohmann_json-populate-install.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeFiles\c759ba53655c926eda07f8dfcf601fb1\nlohmann_json-populate-test.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeFiles\88e4fa0bc494a747fcac5524ae0ca747\nlohmann_json-populate-complete.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeFiles\79a5cfb4a3c9b1acb651c2522c5f3a20\nlohmann_json-populate.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeLists.txt" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\_deps\nlohmann_json-subbuild\CMakeFiles\nlohmann_json-populate" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{3E475FD3-045C-327F-A4FE-FFB017BD5985}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

@@ -14,7 +14,8 @@ struct Move{
     board prevBO;
     short prevActiveBoard;
     short chosenBoard;
-    board prevBoard;
+    board prevBoardX;
+    board prevBoardO;
 };
 class Game {
 public:

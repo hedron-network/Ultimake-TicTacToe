@@ -6,192 +6,205 @@ import random
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-WIN_SCORE  =  1_000_000
-LOSS_SCORE = -1_000_000
-MAX_DEPTH  = 100
-TIME_LIMIT = 0.1
+WIN_SCORE      =  1_000_000
+LOSS_SCORE     = -1_000_000
+CONFIRMED_WIN  =    999_000   # only reached via is_done() terminal, not eval()
+MAX_DEPTH      = 100
+TIME_LIMIT     = 4.0
 
-# Pre-computed move priority lookup (avoids set creation on every call)
-_MOVE_PRIORITY = [
-    2 if (i % 9) in {1, 3, 5, 7} else (0 if (i % 9) == 4 else 1)
-    for i in range(81)
+# ---------------------------------------------------------------------------
+# Move ordering
+#
+# In Ultimate TTT, within each sub-board:
+#   cell 4 (centre) is best
+#   cells 0,2,6,8 (corners) are next
+#   cells 1,3,5,7 (edges) are worst
+#
+# Priority value: LOWER number = searched FIRST.
+# ---------------------------------------------------------------------------
+_CELL_PRIORITY = [
+    1,   # 0 corner
+    2,   # 1 edge   (worst)
+    1,   # 2 corner
+    2,   # 3 edge
+    0,   # 4 centre (best)
+    2,   # 5 edge
+    1,   # 6 corner
+    2,   # 7 edge
+    1,   # 8 corner
 ]
 
-def order_moves(moves):
-    a, b, c = [], [], []
-    for m in moves:
-        p = _MOVE_PRIORITY[m]
-        if p == 2: a.append(m)
-        elif p == 1: b.append(m)
-        else: c.append(m)
-    return a + b + c
+_MOVE_PRIORITY = [_CELL_PRIORITY[i % 9] for i in range(81)]
+
+
+def order_moves(moves, pv_move=None):
+    """Sort: PV move first, then centre, corners, edges."""
+    if pv_move is not None and pv_move in moves:
+        rest = sorted((m for m in moves if m != pv_move), key=lambda m: _MOVE_PRIORITY[m])
+        return [pv_move] + rest
+    return sorted(moves, key=lambda m: _MOVE_PRIORITY[m])
 
 
 # ---------------------------------------------------------------------------
 # Transposition table
-# Stores: (depth, flag, value)
-# flag: 0 = exact, 1 = lower bound (beta cut), 2 = upper bound (alpha cut)
 # ---------------------------------------------------------------------------
 _tt: dict = {}
-
-# Flag constants (faster than string comparison)
 _EXACT = 0
-_LOWER = 1
-_UPPER = 2
+_LOWER = 1   # fail-high / lower bound
+_UPPER = 2   # fail-low  / upper bound
 
-eval_calls = 0
-def minimax(game, depth, alpha, beta, maximizing=True):
-    global eval_calls
-    # --- Terminal / leaf ---
+
+def _eval_for_mover(game):
+    """game.eval() is from X's perspective. Flip for O."""
+    raw = game.eval()
+    return raw if game.get_current_player() == 1 else -raw
+
+
+def minimax(game, depth, alpha, beta):
+    """Negamax alpha-beta. Score from mover's perspective."""
     if game.is_done():
         w = game.get_winner()
         if w == 0:
             return 0
-        # current player is whoever is to move now; the one who just moved won
-        current_player = game.get_current_player()
-        return LOSS_SCORE  if w != current_player else WIN_SCORE
+        # In negamax: the player about to move has already lost.
+        # The winner was the one who just moved (not current player).
+        return LOSS_SCORE  # always from mover's POV
 
     if depth == 0:
-        eval_calls+=1
-        return game.eval() 
-
+        return _eval_for_mover(game)
+    
     moves = game.get_legal_moves()
     if not moves:
         return 0
 
-    # --- Transposition table lookup ---
-    # Use id of a hashable state representation; get_state() must return something hashable.
-    state_key = (game.get_hash(), game.get_current_player())
-    tt_entry = _tt.get(state_key)
+    # TT probe
+    key      = game.get_hash()
+    tt_entry = _tt.get(key)
     if tt_entry is not None:
         cached_depth, flag, cached_val = tt_entry
         if cached_depth >= depth:
             if flag == _EXACT:
                 return cached_val
-            elif flag == _LOWER:
-                if cached_val > alpha:
-                    alpha = cached_val
-            else:  # _UPPER
-                if cached_val < beta:
-                    beta = cached_val
+            elif flag == _LOWER and cached_val > alpha:
+                alpha = cached_val
+            elif flag == _UPPER and cached_val < beta:
+                beta = cached_val
             if alpha >= beta:
                 return cached_val
 
-    moves = order_moves(moves)
     original_alpha = alpha
+    value          = -math.inf
 
-    value = -math.inf
-    for m in moves:
+    for m in order_moves(moves):
         game.apply_move(m)
-        child = -minimax(game, depth - 1, -beta, -alpha)  # negamax flip
+        child = -minimax(game, depth - 1, -beta, -alpha)
         game.undo()
         if child > value:
             value = child
-            if value > alpha:
-                alpha = value
-                if alpha >= beta:
-                    break
-    # --- Store in TT ---
+        if value > alpha:
+            alpha = value
+        if alpha >= beta:
+            break
+
+    # TT store
     if value <= original_alpha:
         flag = _UPPER
     elif value >= beta:
         flag = _LOWER
     else:
         flag = _EXACT
-    _tt[state_key] = (depth, flag, value)
+    _tt[key] = (depth, flag, value)
 
     return value
 
 
+# ---------------------------------------------------------------------------
+# Iterative deepening with aspiration windows
+# ---------------------------------------------------------------------------
 def best_move(game, max_depth=MAX_DEPTH, time_limit=TIME_LIMIT):
+    global _tt
+
     moves = game.get_legal_moves()
     assert moves, "best_move called with no legal moves"
 
-    moves = order_moves(moves)
-    chosen = moves[0]
-    start  = time.monotonic()
+    if len(_tt) > 2_000_000:
+        _tt = {}
 
-    maximizing_root = True
-
-    # Aspiration window parameters
-    ASPIRATION_DELTA = 50_000
-
-    prev_score = 0  # seed for aspiration windows
+    chosen     = order_moves(moves)[0]
+    start      = time.monotonic()
+    prev_score = 0
+    DELTA      = 30_000
 
     for depth in range(1, max_depth + 1):
-        if time.monotonic() - start > time_limit:
+        if time.monotonic() - start >= time_limit:
             break
 
-        # --- Aspiration windows (skip for depth 1 to get a reliable seed) ---
-        if depth > 1:
-            alpha = prev_score - ASPIRATION_DELTA
-            beta  = prev_score + ASPIRATION_DELTA
-        else:
-            alpha = -math.inf
-            beta  =  math.inf
-
-        best_val   = -math.inf
-        depth_best = chosen
-        timeout    = False
-
-        # Re-sort moves using previous best move first (PV move ordering)
-        if depth > 1 and chosen in moves:
-            moves.remove(chosen)
-            moves.insert(0, chosen)
+        alpha = (-math.inf if depth == 1 else prev_score - DELTA)
+        beta  = ( math.inf if depth == 1 else prev_score + DELTA)
 
         while True:   # aspiration re-search loop
-            best_val   = -math.inf
-            depth_best = chosen
+            best_val    = -math.inf
+            depth_best  = chosen
+            timeout     = False
+            local_alpha = alpha
 
-            for m in moves:
-                if time.monotonic() - start > time_limit:
+            for m in order_moves(moves, pv_move=chosen):
+                if time.monotonic() - start >= time_limit:
                     timeout = True
                     break
+
                 game.apply_move(m)
-                val = -minimax(game, depth - 1, -beta, -alpha)
+                val = -minimax(game, depth - 1, -beta, -local_alpha)
                 game.undo()
 
                 if val > best_val:
-                    best_val   = val
+                    best_val  = val
                     depth_best = m
-                if val > alpha:
-                    alpha = val
+                if val > local_alpha:
+                    local_alpha = val
 
             if timeout:
                 break
 
-            if best_val <= prev_score - ASPIRATION_DELTA:
-                alpha = -math.inf
-                beta  = math.inf   # open both bounds on fail-low
-            elif best_val >= prev_score + ASPIRATION_DELTA:
-                alpha = -math.inf  # open both bounds on fail-high
-                beta  = math.inf
+            if depth == 1:
+                break   # no aspiration on depth 1
+
+            if best_val <= alpha:
+                # Fail low: widen window downward
+                DELTA *= 2
+                alpha  = max(prev_score - DELTA, -math.inf)
+                beta   = math.inf
+            elif best_val >= beta:
+                # Fail high: widen window upward
+                DELTA *= 2
+                alpha  = -math.inf
+                beta   = min(prev_score + DELTA, math.inf)
             else:
-                break
+                break   # within window, accept
 
         if not timeout:
             chosen     = depth_best
             prev_score = best_val
+            DELTA      = 30_000   # reset for next depth
 
-        elapsed  = time.monotonic() - start
-        tt_size  = len(_tt)
-        #print(f"  [depth={depth}] move={chosen}  score={best_val:.1f} ({elapsed:.2f}s)  TT={tt_size}")
-
-        if best_val >= WIN_SCORE:
+        # Only stop early if the score comes from a proven terminal node,
+        # not just a high static eval. CONFIRMED_WIN is above any eval()
+        # output but below WIN_SCORE, so only actual is_done() returns
+        # can push past it.
+        if abs(prev_score) >= CONFIRMED_WIN:
             break
 
     return chosen
 
-def best_move_train(game):
-    """Shallow fixed-depth search for training data generation.
-    - Fixed depth=3 so every leaf calls eval()
-    - Clears TT before each call so net weights are always fresh
-    - No time limit
-    """
-    global _tt
-    _tt = {}   # fresh TT — no stale cached scores from other games
 
-    moves = order_moves(game.get_legal_moves())
+# ---------------------------------------------------------------------------
+# Training helper
+# ---------------------------------------------------------------------------
+def best_move_train(game):
+    global _tt
+    _tt = {}
+
+    moves    = order_moves(game.get_legal_moves())
     best_val = -math.inf
     chosen   = moves[0]
 
@@ -204,40 +217,35 @@ def best_move_train(game):
             chosen   = m
 
     return chosen
+
+
 # ---------------------------------------------------------------------------
 # Coordinate helpers
 # ---------------------------------------------------------------------------
 def coord_to_move(col, row):
-    """(col, row) 1-indexed on a 9×9 grid → move index 0–80."""
-    col -= 1;  row -= 1
-    board_col = col // 3;  board_row = row // 3
-    cell_col  = col % 3;   cell_row  = row % 3
+    col -= 1; row -= 1
+    board_col = col // 3; board_row = row // 3
+    cell_col  = col % 3;  cell_row  = row % 3
     return (board_row * 3 + board_col) * 9 + cell_row * 3 + cell_col
 
 
 def move_to_coord(move):
-    """Move index 0–80 → (col, row) 1-indexed."""
-    board_index = move // 9;  cell_index = move % 9
-    board_col = board_index % 3;  board_row = board_index // 3
-    cell_col  = cell_index  % 3;  cell_row  = cell_index  // 3
+    board_index = move // 9; cell_index = move % 9
+    board_col = board_index % 3; board_row = board_index // 3
+    cell_col  = cell_index  % 3; cell_row  = cell_index  // 3
     return board_col * 3 + cell_col + 1, board_row * 3 + cell_row + 1
 
 
 # ---------------------------------------------------------------------------
-# Game loop
+# Game loops
 # ---------------------------------------------------------------------------
 def play_game(human_starts=True):
-    global eval_calls
-    global _tt
-    _tt = {}
-
-    game        = engine.Game()
+    game       = engine.Game()
     move_number = 0
+    human_turn  = human_starts
 
-    print("\n=== Ultimate Tic Tac Toe — Minimax Alpha-Beta ===")
-    print(f"  Human {'goes first (player 1 / X)' if human_starts else 'is player 2 / O'}")
-
-    human_turn = human_starts
+    print("\n=== Ultimate Tic Tac Toe ===")
+    print(f"  Human {'goes first (X)' if human_starts else 'is O'}")
 
     while not game.is_done():
         move_number += 1
@@ -259,21 +267,17 @@ def play_game(human_starts=True):
                 except ValueError:
                     print("  Please enter an integer.")
             game.apply_move(m)
-            print(f"  → Human plays {m}")
-
         else:
             t0 = time.monotonic()
             m  = best_move(game)
             game.apply_move(m)
-            print(f"  → AI plays {move_to_coord(m)}  ({time.monotonic() - t0:.2f}s)")
+            print(f"  → AI plays {move_to_coord(m)}  ({time.monotonic() - t0:.3f}s)")
+            print(game.eval())
 
-        print("\nBoard after move:")
-        game.print_board()
         human_turn = not human_turn
 
     print("\nFinal board:")
     game.print_board()
-
     w = game.get_winner()
     print("\n=== Game over ===")
     if w == 0:
@@ -282,83 +286,74 @@ def play_game(human_starts=True):
         print("Human wins!")
     else:
         print("AI wins!")
+
+
 def play_AIgame(human_starts=True):
     global _tt
     _tt = {}
-
     game        = engine.Game()
     move_number = 0
-
-    print("\n=== Ultimate Tic Tac Toe — Minimax Alpha-Beta ===")
-    print(f"  Human {'goes first (player 1 / X)' if human_starts else 'is player 2 / O'}")
-
-    human_turn = human_starts
+    human_turn  = human_starts
 
     while not game.is_done():
         move_number += 1
         legal = game.get_legal_moves()
-
-        print(f"\n--- Move {move_number} | {'Random' if human_turn else 'AI'} ---")
-
         if human_turn:
-            m=random.choice(legal)
-            game.apply_move(m)
-
+            game.apply_move(random.choice(legal))
+        
         else:
-            t0 = time.monotonic()
-            m  = best_move(game)
-            game.apply_move(m)
-            print(f"  → AI plays {move_to_coord(m)}  ({time.monotonic() - t0:.2f}s)")
-
+            game.apply_move(best_move(game))
+        
+        print(game.eval())
         game.print_board()
         human_turn = not human_turn
 
-    print("\nFinal board:")
-    game.print_board()
-
     w = game.get_winner()
-    print("\n=== Game over ===")
-    print(eval_calls)
-    if w == 0:
-        print("Draw!")
-    elif (w == 1 and human_starts) or (w == -1 and not human_starts):
-        print("Random wins!")
-    else:
-        print("AI wins!")
+    if w == 0: print("Draw!")
+    elif (w == 1 and human_starts) or (w == -1 and not human_starts): print("Random wins!")
+    else: print("AI wins!")
 
-def BenchmarkModel():
-    won = 0
-    for i in range(0,10):
-        print("game ",i)
-        global _tt
+
+def BenchmarkModel(n=20, ai_goes_first=False):
+    """
+    AI vs random for n games.
+    ai_goes_first=False → AI is O (wins when get_winner()==-1)
+    ai_goes_first=True  → AI is X (wins when get_winner()==1)
+    """
+    global _tt
+    wins = draws = losses = 0
+    ai_win_value = 1 if ai_goes_first else -1
+
+    for i in range(n):
         _tt = {}
+        game    = engine.Game()
+        ai_turn = ai_goes_first
 
-        game        = engine.Game()
-        human_turn = True
-        move_number=0
         while not game.is_done():
-            move_number += 1
             legal = game.get_legal_moves()
-            if human_turn:
-                m=random.choice(legal)
-                game.apply_move(m)
-
-            else:
-                m  = best_move(game)
-                game.apply_move(m)
-            human_turn = not human_turn
+            m = best_move(game) if ai_turn else random.choice(legal)
+            game.apply_move(m)
+            ai_turn = not ai_turn
 
         w = game.get_winner()
-        if w == 0:
-            pass
-        elif (w == 1 ):
-            pass
+        if w == ai_win_value:
+            wins += 1
+        elif w == 0:
+            draws += 1
         else:
-            won+=1
-    print("won ",won)
+            losses += 1
+        print(f"game {i:2d}  {'WIN ' if w==ai_win_value else ('DRAW' if w==0 else 'LOSS')}"
+              f"  running: {wins}W {draws}D {losses}L")
+
+    print(f"\nFinal: {wins}W / {draws}D / {losses}L  ({100*wins//n}% win rate)")
+
+
 if __name__ == "__main__":
-    choice = input("Who goes first? [h]uman / [a]i: ").strip().lower()
-    if(choice == "n"):
+    choice = input("Mode? [h]uman vs AI / [b]enchmark: ").strip().lower()
+    if choice == "b":
+        BenchmarkModel(n=20)
+    elif choice =="n":
         play_AIgame()
     else:
-        play_game(human_starts=(choice != "a"))
+        side = input("Who goes first? [h]uman / [a]i: ").strip().lower()
+        play_game(human_starts=(side != "a"))

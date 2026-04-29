@@ -1,28 +1,28 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\Board.cpp">
+    <ClCompile Include="C:\Users\perso\Desktop\Rendu FIA Nathan Raphael Raphael Pierre\code\Board.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\Game.cpp">
+    <ClCompile Include="C:\Users\perso\Desktop\Rendu FIA Nathan Raphael Raphael Pierre\code\Game.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\bindings.cpp">
+    <ClCompile Include="C:\Users\perso\Desktop\Rendu FIA Nathan Raphael Raphael Pierre\code\bindings.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\neural_net.cpp">
+    <ClCompile Include="C:\Users\perso\Desktop\Rendu FIA Nathan Raphael Raphael Pierre\code\neural_net.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\code\neural_test.cpp">
+    <ClCompile Include="C:\Users\perso\Desktop\Rendu FIA Nathan Raphael Raphael Pierre\code\neural_test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\CMakeLists.txt" />
+    <CustomBuild Include="C:\Users\perso\Desktop\Rendu FIA Nathan Raphael Raphael Pierre\CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source Files">
-      <UniqueIdentifier>{077F7820-7C6B-3DB6-A847-C922A949C57E}</UniqueIdentifier>
+      <UniqueIdentifier>{48B81254-86E9-3FF9-A188-93AFE11C06C4}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>

@@ -1,0 +1,10 @@
+^C:\USERS\PERSO\DOCUMENTS\GITHUB\ULTIMAKE-TICTACTOE\BUILD\_DEPS\NLOHMANN_JSON-SUBBUILD\CMAKEFILES\79A5CFB4A3C9B1ACB651C2522C5F3A20\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SC:/Users/perso/Documents/GitHub/Ultimake-TicTacToe/build/_deps/nlohmann_json-subbuild -BC:/Users/perso/Documents/GitHub/Ultimake-TicTacToe/build/_deps/nlohmann_json-subbuild --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Users/perso/Documents/GitHub/Ultimake-TicTacToe/build/_deps/nlohmann_json-subbuild/nlohmann_json-populate.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

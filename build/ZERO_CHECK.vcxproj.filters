@@ -1,13 +1,13 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <CustomBuild Include="C:\Users\perso\Documents\GitHub\Ultimake-TicTacToe\build\CMakeFiles\3a003110e493edea8aec2da457b97eeb\generate.stamp.rule">
+    <CustomBuild Include="C:\Users\perso\Desktop\Rendu FIA Nathan Raphael Raphael Pierre\build\CMakeFiles\eeaae07775a0245c42868fa190c059f8\generate.stamp.rule">
       <Filter>CMake Rules</Filter>
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="CMake Rules">
-      <UniqueIdentifier>{CD13E11F-206F-3CC8-8765-8FA0E7E4587F}</UniqueIdentifier>
+      <UniqueIdentifier>{3A5E4858-0771-321A-9B86-AD72FE265E8C}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
 </Project>
