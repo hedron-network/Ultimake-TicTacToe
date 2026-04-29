@@ -10,7 +10,7 @@ WIN_SCORE      =  1_000_000
 LOSS_SCORE     = -1_000_000
 CONFIRMED_WIN  =    999_000   # only reached via is_done() terminal, not eval()
 MAX_DEPTH      = 100
-TIME_LIMIT     = 0.1
+TIME_LIMIT     = 4
 
 # ---------------------------------------------------------------------------
 # Move ordering
