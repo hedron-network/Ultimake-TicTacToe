@@ -378,30 +378,18 @@ float Game::EvaluateBigBoard() {
         if (x == 1) score +=  5000;
         if (o == 2) score -= 50000;
         if (o == 1) score -=  5000;
-
-        // Alignment nudge: for each unclaimed board on this line,
-        // add a fraction of its sub-board eval so the AI prefers
-        // targeting boards that extend an existing chain.
-        board remaining = line & ~bigX & ~bigO;
-        while (remaining) {
-            unsigned long idx;
-            #ifdef _WIN32
-                _BitScanForward(&idx, remaining);
-            #else
-                idx = __builtin_ctz(remaining);
-            #endif
-            remaining &= remaining - 1;
-            float sub = EvaluateSubBoard(idx);
-            // Scale down heavily — this is purely a tie-breaker
-            if (!o) score += sub * 0.05f;
-            if (!x) score -= sub * 0.05f;
-        }
     }
 
-    // Centre meta-board is especially valuable
+    // Centre sits on 4 winning lines — weight it more strongly than a flat bonus
     const board centre = BoardHandling::IntToBoard(4);
-    if (bigX & centre) score +=  8000;
-    if (bigO & centre) score -=  8000;
+    if (bigX & centre) score += 12000;
+    if (bigO & centre) score -= 12000;
+
+    // Corners sit on 3 lines each, edges on 2 — add explicit bonuses
+    const board corners = BoardHandling::IntToBoard(0) | BoardHandling::IntToBoard(2) |
+                          BoardHandling::IntToBoard(6) | BoardHandling::IntToBoard(8);
+    score += 4000 * popcount(bigX & corners);
+    score -= 4000 * popcount(bigO & corners);
 
     return score;
 }

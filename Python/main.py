@@ -10,7 +10,7 @@ WIN_SCORE      =  1_000_000
 LOSS_SCORE     = -1_000_000
 CONFIRMED_WIN  =    999_000   # only reached via is_done() terminal, not eval()
 MAX_DEPTH      = 100
-TIME_LIMIT     = 4.0
+TIME_LIMIT     = 0.1
 
 # ---------------------------------------------------------------------------
 # Move ordering
@@ -288,7 +288,7 @@ def play_game(human_starts=True):
         print("AI wins!")
 
 
-def play_AIgame(human_starts=True):
+def play_AIgame(human_starts=False):
     global _tt
     _tt = {}
     game        = engine.Game()
